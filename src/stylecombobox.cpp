@@ -21,8 +21,11 @@ StyleComboBox::StyleComboBox(QWidget *parent) : QComboBox(parent)
 	for (size_t i = 0; i < ARRAY_SIZE(styles); i++) {
 		QPixmap pm(is);
 		pm.fill(Qt::transparent);
-
+#ifdef Q_WS_MAEMO_5
+		QBrush brush(Qt::white);
+#else
 		QBrush brush(Qt::black);
+#endif
 		QPen pen(brush, is.height() / LINE_WIDTH_RATIO, styles[i]);
 
 		QPainter painter(&pm);

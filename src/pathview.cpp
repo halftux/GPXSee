@@ -469,11 +469,36 @@ void PathView::mouseDoubleClickEvent(QMouseEvent *event)
 
 	zoom(z, event->pos());
 }
+#ifdef Q_WS_MAEMO_5
+void PathView::mousePressEvent(QMouseEvent *e)
+{
+	if (e->button() == Qt::RightButton)
+		QWidget::mousePressEvent(e);
+	else
+		QGraphicsView::mousePressEvent(e);
+}
+void PathView::zoom_maemo(QString direction)
+{
+	int z = -1;
+	if (direction=="in") z = qMin(_zoom + 1, ZOOM_MAX);
+	else z = qMax(_zoom - 1, ZOOM_MIN);
+	if (z >= 0) zoom(z, QRect(QPoint(), size()).center());
+}
+#endif
 
 void PathView::keyPressEvent(QKeyEvent *event)
 {
 	int z = -1;
 
+#ifdef Q_WS_MAEMO_5
+	if (event->key()==Qt::Key_F7)
+		z = qMin(_zoom + 1, ZOOM_MAX);
+	else if (event->key()==Qt::Key_F8)
+		z = qMax(_zoom - 1, ZOOM_MIN);
+	else QWidget::keyPressEvent(event);
+	if (z >= 0)
+		zoom(z, QRect(QPoint(), size()).center());
+#else
 	if (event->matches(QKeySequence::ZoomIn))
 		z = qMin(_zoom + 1, ZOOM_MAX);
 	if (event->matches(QKeySequence::ZoomOut))
@@ -483,6 +508,7 @@ void PathView::keyPressEvent(QKeyEvent *event)
 		zoom(z, QRect(QPoint(), size()).center());
 	else
 		QWidget::keyPressEvent(event);
+#endif
 }
 
 void PathView::plot(QPainter *painter, const QRectF &target)

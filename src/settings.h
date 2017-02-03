@@ -14,13 +14,19 @@
 #define UNITS_SETTING                     "units"
 #define UNITS_DEFAULT                     (IMPERIAL_UNITS() ? Imperial : Metric)
 #define SHOW_TOOLBARS_SETTING             "toolbar"
+#ifdef Q_WS_MAEMO_5
+#define SHOW_TOOLBARS_DEFAULT             false
+#define SHOW_STATUSBAR_SETTING            "statusbar"
+#define SHOW_STATUSBAR_DEFAULT            true
+#else
 #define SHOW_TOOLBARS_DEFAULT             true
+#endif
 
 #define GRAPH_SETTINGS_GROUP              "Graph"
 #define SHOW_GRAPHS_SETTING               "show"
 #define SHOW_GRAPHS_DEFAULT               true
 #define GRAPH_TYPE_SETTING                "type"
-#define GRAPH_TYPE_DEFAULT                Distance
+#define GRAPH_TYPE_DEFAULT                gtDistance
 #define SHOW_GRAPH_GRIDS_SETTING          "grid"
 #define SHOW_GRAPH_GRIDS_DEFAULT          true
 
@@ -91,7 +97,11 @@
 #define POI_RADIUS_SETTING                "poiRadius"
 #define POI_RADIUS_DEFAULT                (IMPERIAL_UNITS() ? MIINM : KMINM)
 #define USE_OPENGL_SETTING                "useOpenGL"
+#ifdef Q_WS_MAEMO_5
+#define USE_OPENGL_DEFAULT                true
+#else
 #define USE_OPENGL_DEFAULT                false
+#endif
 #define PRINT_NAME_SETTING                "printName"
 #define PRINT_NAME_DEFAULT                true
 #define PRINT_DATE_SETTING                "printDate"

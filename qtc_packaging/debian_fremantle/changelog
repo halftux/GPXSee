@@ -1,0 +1,30 @@
+gpxsee (0.3.8maemo1) unstable; urgency=low
+  * added hide statusbar
+  * added hide map widget
+  * removed virtual qsplitter
+  * added autoload last file
+  * added shortcut for toolbar
+  * fixed poi loading and menu
+  * updated keyboard controls
+  * fixed zooming behavior
+
+ -- Christian Weniger <less_to_space@web.de>  Sun, 29 Jan 2017 13:51:14 +0100
+ 
+gpxsee (0.3.7maemo2) unstable; urgency=low
+  * added support for ssl connection
+
+ -- Christian Weniger <less_to_space@web.de>  Tue, 24 Jan 2017 23:48:14 +0100
+
+gpxsee (0.3.7maemo1) unstable; urgency=low
+  * new downstream version
+  * fixed color for line style
+  * fixed export units
+  * chaned qreal to double calculation
+  * opengl set as default
+
+ -- Christian Weniger <less_to_space@web.de>  Mon, 23 Jan 2017 23:08:14 +0100
+
+gpxsee (0.3.5maemo1) unstable; urgency=low
+  * maemo initial release
+
+ -- Christian Weniger <less_to_space@web.de>  Sun, 08 Jan 2017 22:30:14 +0100

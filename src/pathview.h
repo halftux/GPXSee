@@ -47,7 +47,9 @@ public:
 
 public slots:
 	void redraw();
-
+#ifdef Q_WS_MAEMO_5
+	void zoom_maemo(QString direction);
+#endif
 	void showPOI(bool show);
 	void setPOIOverlap(bool overlap);
 	void showWaypointLabels(bool show);
@@ -78,6 +80,9 @@ private:
 	void zoom(int z, const QPoint &pos);
 	void updatePOIVisibility();
 	void updateWaypointsBoundingRect(const QPointF &wp);
+#ifdef Q_WS_MAEMO_5
+	void mousePressEvent(QMouseEvent *e);
+#endif
 
 	void mouseDoubleClickEvent(QMouseEvent *event);
 	void wheelEvent(QWheelEvent *event);

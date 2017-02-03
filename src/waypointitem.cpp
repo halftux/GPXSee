@@ -90,6 +90,9 @@ void WaypointItem::paint(QPainter *painter,
 		QRect ts = fm.tightBoundingRect(_waypoint.name());
 
 		painter->setFont(font);
+#ifdef Q_WS_MAEMO_5
+        painter->setPen(Qt::black);
+#endif
 		painter->drawText(pointSize/2 - qMax(ts.x(), 0), pointSize/2
 		  + ts.height(), _waypoint.name());
 	}

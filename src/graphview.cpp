@@ -56,7 +56,7 @@ GraphView::GraphView(QWidget *parent)
 	_sliderPos = 0;
 
 	_units = Metric;
-	_graphType = Distance;
+	_graphType = gtDistance;
 	_xLabel = tr("Distance");
 }
 
@@ -102,7 +102,7 @@ void GraphView::setYUnits(const QString &units)
 
 void GraphView::setXUnits()
 {
-	if (_graphType == Distance) {
+	if (_graphType == gtDistance) {
 		if (_units == Metric) {
 			if (bounds().width() < KMINM) {
 				_xUnits = tr("m");
@@ -121,7 +121,7 @@ void GraphView::setXUnits()
 			}
 		}
 	} else {
-		    if (bounds().width() < MININS) {
+			if (bounds().width() < MININS) {
 				_xUnits = tr("s");
 				_xScale = 1;
 			} else if (bounds().width() < HINS) {
@@ -153,7 +153,7 @@ void GraphView::setGraphType(GraphType type)
 			_bounds |= _graphs.at(i)->bounds();
 	}
 
-	if (type == Distance)
+	if (type == gtDistance)
 		_xLabel = tr("Distance");
 	else
 		_xLabel = tr("Time");

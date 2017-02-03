@@ -5,7 +5,7 @@
 #include <QDebug>
 #include <cmath>
 
-enum GraphType {Distance, Time};
+enum GraphType {gtDistance, gtTime};
 
 class GraphPoint
 {
@@ -16,7 +16,7 @@ public:
 	qreal s() const {return _s;}
 	qreal t() const {return _t;}
 	qreal y() const {return _y;}
-	qreal x(GraphType type) const {return (type == Distance) ? _s : _t;}
+	qreal x(GraphType type) const {return (type == gtDistance) ? _s : _t;}
 
 	void setS(qreal s) {_s = s;}
 	void setT(qreal t) {_t = t;}

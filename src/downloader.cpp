@@ -1,10 +1,14 @@
 #include <QFile>
 #include <QFileInfo>
+#if defined (Q_WS_MAEMO_5)
+#include <QSslSocket>
+#include <QSslConfiguration>
+#endif
 #include "config.h"
 #include "downloader.h"
 
 
-#if defined(Q_OS_LINUX)
+#if defined(Q_OS_LINUX) || defined(Q_WS_MAEMO_5)
 #define PLATFORM_STR "Linux"
 #elif defined(Q_OS_WIN32)
 #define PLATFORM_STR "Windows"
@@ -46,9 +50,16 @@ bool Downloader::doDownload(const Download &dl, const Redirect &redirect)
 		request.setAttribute(ATTR_ORIGIN, QVariant(redirect.origin()));
 		request.setAttribute(ATTR_LEVEL, QVariant(redirect.level()));
 	}
+#ifdef Q_WS_MAEMO_5
+	if (url.toString().startsWith("https://"))
+	{
+		QSslConfiguration configSsl = QSslConfiguration::defaultConfiguration();
+		configSsl.setProtocol(QSsl::AnyProtocol);
+		request.setSslConfiguration(configSsl);
+	}
+#endif
 	request.setRawHeader("User-Agent", USER_AGENT);
 	QNetworkReply *reply = _manager.get(request);
-
 	_currentDownloads.insert(url, reply);
 
 	return true;

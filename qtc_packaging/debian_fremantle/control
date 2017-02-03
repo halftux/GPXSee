@@ -1,0 +1,16 @@
+Source: gpxsee
+Section: user/navigation
+Priority: optional
+Maintainer: Christian Weniger <less_to_space@web.de>
+Build-Depends: debhelper (>= 5), libqt4-dev
+Standards-Version: 3.7.3
+Homepage: http://tumic.wz.cz/gpxsee/
+
+Package: gpxsee
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: GPXSee is a GPS log file viewer
+ GPXSee is a Qt-based GPS log file viewer and analyzer that supports GPX, TCX, KML, FIT, IGC and NMEA files.
+XB-Maemo-Display-Name: GPXSee
+XSBC-Bugtracker: https://bugs.maemo.org/enter_bug.cgi?product=gpxsee
+XB-Maemo-Icon-26: iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAKYQAACmEB/MxKJQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAMrSURBVGiB7dhfiFVVFMfxz+hojUjlJJVQGGYklDIYRZJERH8INQp6CHrooX+EDb1EIFEvQUQUVE/9j4LsrbAgKIoekqye0ohokJjSSqLSirIpdXpYR+aeM+ece67u42XgfuHAvXvvu9bv7rX32msfBgwYMKeZfwJ8jGAT/syeOcXN+B7/4ge82l85vfMVpjueH3FOSgfzUhorsBCLC22LsbJFn8l5CYfMROBrDPVVUY+cLET/h8NYldpBm0sIhrEC4yISYy37S86NQvgo3sfW/srpnRewPft8L/aLqMwZ9mJL9nm52MhX9U9Ob4wJwWs62nbiqZROjmUTL2w4bgP2YFdH29uirOgLD+AbTOJ1nNpl/Cd4ttB2iYjKhanFdeMC/GzmQDqEx2rGny7yfnG2h0Q5sWXWL1rmCfmaZhoTNeNvxUEsKul7HjtSC+zGavkITGdCqtiKdyv6NuEIzkwpsAmPZ45/x19ic55SMm4+fsXmCjsj2e9vb0FjLUfT4jqch334CCcVxl2ejTu3xta27Dmh3IM/zKTeMRGNt+Rvdo+Ke0Add4gojCTWWMtr+KDQdiX+wYsdbTvFcqvjLLEcN6YS14QJPFLSfpNIq8/hDbF8NjSw96n6RJCUpULY9RX9T8tnqEnlKbSTB/GT8gvOMG7DZ2KJXtyz4gIbRchHK/p3yP+BKXFy17E6G3tpSd84/u6wtxdLyow0rYUuE2XEbxX9U4XvR3R/hfKliNQNJX13yW/wZbivq8oaPsTLNf3rRYlwWGSXCc2Kvmfki72jvCMf0f24pge9OeaJ2byzy7ileAi3YEFD21ebfWacjTexGwfExBSzX0+syZxcdDxGKlggzpLx7PtKsax24QyRplccr5O7xUy08QJgGb4TG/YLscc+V50sjolX8F5Kgx1sk1/rB8XMN6bJrK7TTvk7jLUl7etTOhkVKfG6lEY72C4fgT3iMpSERbhf1PWnpTJaYK3YsPvwLR5OZfgKMRtT+EXcb9tkucTviz6WD+0B1XVQX6naxMV1OILzW9aSlM3i8jItNvGkeNM8ZxjCtaIGelIc7wMGDBgwYBb/A5fpuzmhzrMnAAAAAElFTkSuQmCC

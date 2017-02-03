@@ -46,6 +46,9 @@ void InfoItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
 	painter->setRenderHint(QPainter::Antialiasing, false);
 
 	for (i = _list.constBegin(); i != _list.constEnd(); i++) {
+#ifdef Q_WS_MAEMO_5
+		painter->setPen(Qt::white);
+#endif
 		painter->drawText(width, fm.height() - fm.descent(), i->key + ": ");
 		width += fm.width(i->key + ": ");
 		painter->drawText(width, fm.height() - fm.descent(), i->value);

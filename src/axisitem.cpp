@@ -115,7 +115,11 @@ void AxisItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
 	struct Label l;
 	qreal range = _range.size();
 	qreal val;
+#ifdef Q_WS_MAEMO_5
+	QPen pen = QPen(Qt::white, AXIS_WIDTH);
+#else
 	QPen pen = QPen(Qt::black, AXIS_WIDTH);
+#endif
 
 
 	painter->setRenderHint(QPainter::Antialiasing, false);

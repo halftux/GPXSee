@@ -9,9 +9,9 @@
 
 qreal Coordinates::distanceTo(const Coordinates &c) const
 {
-	qreal dLat = deg2rad(c.lat() - _lat);
-	qreal dLon = deg2rad(c.lon() - _lon);
-	qreal a = pow(sin(dLat / 2.0), 2.0)
+	double dLat = deg2rad(c.lat() - _lat);
+	double dLon = deg2rad(c.lon() - _lon);
+	double a = pow(sin(dLat / 2.0), 2.0)
 	  + cos(deg2rad(_lat)) * cos(deg2rad(c.lat())) * pow(sin(dLon / 2.0), 2.0);
 
 	return (WGS84_RADIUS * (2.0 * atan2(sqrt(a), sqrt(1.0 - a))));
@@ -42,14 +42,14 @@ QDebug operator<<(QDebug dbg, const Coordinates &coordinates)
 
 QPair<Coordinates, Coordinates> Coordinates::boundingRect(qreal distance) const
 {
-	qreal radDist = distance / WGS84_RADIUS;
+	double radDist = distance / WGS84_RADIUS;
 
-	qreal minLat = deg2rad(_lat) - radDist;
-	qreal maxLat = deg2rad(_lat) + radDist;
+	double minLat = deg2rad(_lat) - radDist;
+	double maxLat = deg2rad(_lat) + radDist;
 
-	qreal minLon, maxLon;
+	double minLon, maxLon;
 	if (minLat > MIN_LAT && maxLat < MAX_LAT) {
-		qreal deltaLon = asin(sin(radDist) / cos(_lat));
+		double deltaLon = asin(sin(radDist) / cos(_lat));
 		minLon = deg2rad(_lon) - deltaLon;
 		if (minLon < MIN_LON)
 			minLon += 2.0 * M_PI;

@@ -1,6 +1,5 @@
 #ifndef GUI_H
 #define GUI_H
-
 #include <QMainWindow>
 #include <QString>
 #include <QList>
@@ -9,8 +8,13 @@
 #include "units.h"
 #include "graph.h"
 #include "poi.h"
+#ifdef Q_WS_MAEMO_5
+#include "expdialog.h"
+#include "optdialog.h"
+#else
 #include "exportdialog.h"
 #include "optionsdialog.h"
+#endif
 
 class QMenu;
 class QToolBar;
@@ -36,10 +40,19 @@ public:
 	bool openFile(const QString &fileName);
 
 private slots:
+#ifdef Q_WS_MAEMO_5
+	void ShowContextMenu(const QPoint &pos);
+	void createPoiMenu();
+	void createMapMenu();
+	void showMapWidget(bool show);
+	void showStatusbar(bool show);
+#endif
 	void about();
 	void keys();
 	void dataSources();
+#ifndef Q_WS_MAEMO_5
 	void printFile();
+#endif
 	void exportFile();
 	void openFile();
 	void closeAll();
@@ -69,19 +82,29 @@ private slots:
 
 	void setMetricUnits() {setUnits(Metric);}
 	void setImperialUnits() {setUnits(Imperial);}
-	void setDistanceGraph() {setGraphType(Distance);}
-	void setTimeGraph() {setGraphType(Time);}
+	void setDistanceGraph() {setGraphType(gtDistance);}
+	void setTimeGraph() {setGraphType(gtTime);}
 
 	void sliderPositionChanged(qreal pos);
 
 private:
+#ifdef Q_WS_MAEMO_5
+	QMenu *_poiMenu;
+	QMenu *_stdMenu;
+	QMenu *_mapMenu;
+	QAction *_togglePoiMenu;
+	QAction *_toggleMapMenu;
+	void grabZoomKeys(bool grab);
+	void click();
+	QAction *_showMapWidgetAction;
+	QAction *_showStatusbarAction;
+#endif
 	typedef QPair<QDate, QDate> DateRange;
 
 	void loadMaps();
 	void loadPOIs();
 	void closeFiles();
 	void plot(QPrinter *printer);
-
 	QAction *createPOIFileAction(int index);
 	void createPOIFilesActions();
 	void createMapActions();
@@ -201,6 +224,10 @@ private:
 
 	Export _export;
 	Options _options;
+#ifdef Q_WS_MAEMO_5
+signals:
+	void s_zoom(QString direction);
+#endif
 };
 
 #endif // GUI_H

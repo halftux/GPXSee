@@ -10,7 +10,7 @@ GraphItem::GraphItem(const Graph &graph, QGraphicsItem *parent)
 
 	_pen = QPen(Qt::black, _width);
 
-	_type = Distance;
+	_type = gtDistance;
 	_graph = graph;
 	_sx = 1.0; _sy = 1.0;
 
@@ -123,7 +123,7 @@ qreal GraphItem::distanceAtTime(qreal time)
 
 void GraphItem::emitSliderPositionChanged(qreal pos)
 {
-	if (_type == Time) {
+	if (_type == gtTime) {
 		if (_graph.hasTime()) {
 			if (pos >= _graph.first().t() && pos <= _graph.last().t())
 				emit sliderPositionChanged(distanceAtTime(pos));
@@ -163,7 +163,7 @@ void GraphItem::updatePath()
 {
 	_path = QPainterPath();
 
-	if (_type == Time && !_graph.hasTime())
+	if (_type == gtTime && !_graph.hasTime())
 		return;
 
 	_path.moveTo(_graph.first().x(_type) * _sx, -_graph.first().y() * _sy);
@@ -173,7 +173,7 @@ void GraphItem::updatePath()
 
 void GraphItem::updateBounds()
 {
-	if (_type == Time && !_graph.hasTime()) {
+	if (_type == gtTime && !_graph.hasTime()) {
 		_bounds = QRectF();
 		return;
 	}

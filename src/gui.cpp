@@ -41,6 +41,12 @@
 #include "graphtab.h"
 #include "format.h"
 #include "gui.h"
+#if defined(Q_WS_MAEMO_5)
+ #include <QtGui>
+ #include <QtGui/QX11Info>
+ #include <X11/Xlib.h>
+ #include <X11/Xatom.h>
+#endif
 
 
 GUI::GUI(QWidget *parent) : QMainWindow(parent)
@@ -56,10 +62,13 @@ GUI::GUI(QWidget *parent) : QMainWindow(parent)
 	createToolBars();
 
 	createBrowser();
-
+	
 	QSplitter *splitter = new QSplitter();
 	splitter->setOrientation(Qt::Vertical);
 	splitter->setChildrenCollapsible(false);
+#ifdef Q_WS_MAEMO_5
+	splitter->setStyleSheet("QSplitter::handle:vertical {height: 0px;}");
+#endif
 	splitter->addWidget(_pathView);
 	splitter->addWidget(_graphTabWidget);
 	splitter->setContentsMargins(0, 0, 0, 0);
@@ -86,6 +95,14 @@ GUI::GUI(QWidget *parent) : QMainWindow(parent)
 	updatePathView();
 	updateStatusBarInfo();
 
+#ifdef Q_WS_MAEMO_5
+	this->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(this, SIGNAL(customContextMenuRequested(const QPoint &)),
+			this, SLOT(ShowContextMenu(const QPoint &)));
+	grabZoomKeys(true);
+	connect(this, SIGNAL(s_zoom(QString)), _pathView, SLOT(zoom_maemo(QString)),Qt::UniqueConnection);
+	_showMapWidgetAction->setChecked(true);
+#endif
 	readSettings();
 }
 
@@ -96,7 +113,104 @@ GUI::~GUI()
 			delete _tabs.at(i);
 	}
 }
+#ifdef Q_WS_MAEMO_5
+void GUI::click()
+{
+	/*QMouseEvent click(QEvent::MouseButtonPress, QPoint(370,25), Qt::LeftButton, 0, 0);
+	click.setAccepted(true);
+	QCoreApplication::sendEvent(this, &click);*/
 
+
+	int x = 370;
+	int y = 25;
+	Display *display = XOpenDisplay (NULL);
+	int cur_x, cur_y;
+	XEvent event;
+	usleep (50000);
+	XQueryPointer (display, DefaultRootWindow (display),
+				   &event.xbutton.root, &event.xbutton.window,
+				   &event.xbutton.x_root, &event.xbutton.y_root,
+				   &event.xbutton.x, &event.xbutton.y,
+				   &event.xbutton.state);
+	cur_x = event.xbutton.x;
+	cur_y = event.xbutton.y;
+	XWarpPointer (display, None, None, 0,0,0,0, -cur_x, -cur_y);
+	XWarpPointer (display, None, None, 0,0,0,0, x, y);
+	usleep (1);
+
+	int button=Button1;
+	//XEvent event;
+	memset (&event, 0, sizeof (event));
+	event.xbutton.button = button;
+	event.xbutton.same_screen = True;
+	event.xbutton.subwindow = DefaultRootWindow (display);
+	while (event.xbutton.subwindow)
+	  {
+		event.xbutton.window = event.xbutton.subwindow;
+		XQueryPointer (display, event.xbutton.window,
+			   &event.xbutton.root, &event.xbutton.subwindow,
+			   &event.xbutton.x_root, &event.xbutton.y_root,
+			   &event.xbutton.x, &event.xbutton.y,
+			   &event.xbutton.state);
+	  }
+	// Press
+	event.type = ButtonPress;
+	if (XSendEvent (display, PointerWindow, True, ButtonPressMask, &event) == 0)
+	  fprintf (stderr, "Error to send the event!\n");
+	XFlush (display);
+	usleep (10);
+	// Release
+	event.type = ButtonRelease;
+	if (XSendEvent (display, PointerWindow, True, ButtonReleaseMask, &event) == 0)
+	  fprintf (stderr, "Error to send the event!\n");
+	XFlush (display);
+	usleep (1);
+	XCloseDisplay (display);
+}
+void GUI::grabZoomKeys(bool grab)
+{
+	if (!winId()) {
+		qWarning("Can't grab keys unless we have a window id");
+		return;
+	}
+
+	unsigned long val = (grab) ? 1 : 0;
+	Atom atom = XInternAtom(QX11Info::display(), "_HILDON_ZOOM_KEY_ATOM", False);
+	if (!atom) {
+		qWarning("Unable to obtain _HILDON_ZOOM_KEY_ATOM. This example will only work "
+				 "on a Maemo 5 device!");
+		return;
+	}
+
+	XChangeProperty (QX11Info::display(),
+			winId(),
+			atom,
+			XA_INTEGER,
+			32,
+			PropModeReplace,
+			reinterpret_cast<unsigned char *>(&val),
+			1);
+}
+
+void GUI::ShowContextMenu(const QPoint &pos)
+{
+	QMenu contextMenu(tr("Context menu"), this);
+	QMenu* unitsmenu = contextMenu.addMenu( "units ->" );
+	QMenu* xaxismenu = contextMenu.addMenu( "xaxis ->" );
+	QMenu* mapsmenu = contextMenu.addMenu( "maps ->" );
+	//QMenu* poifilesmenu = contextMenu.addMenu( "pois ->" );
+	xaxismenu->addAction(_distanceGraphAction);
+	xaxismenu->addAction(_timeGraphAction);
+	unitsmenu->addAction(_metricUnitsAction);
+	unitsmenu->addAction(_imperialUnitsAction);
+	mapsmenu->addActions(_mapActions);
+	//poifilesmenu->addActions(_poiFilesActions);
+	contextMenu.addAction(_fullscreenAction);
+	contextMenu.addAction(_showGraphsAction);
+	contextMenu.addAction(_showMapWidgetAction);
+	contextMenu.exec(mapToGlobal(pos));
+}
+#endif
 const QString GUI::fileFormats() const
 {
 	return tr("Supported files (*.csv *.fit *.gpx *.igc *.kml *.nmea *.tcx)")
@@ -195,6 +309,12 @@ QAction *GUI::createPOIFileAction(int index)
 void GUI::createActions()
 {
 	QActionGroup *ag;
+#ifdef Q_WS_MAEMO_5
+	_togglePoiMenu = new QAction(tr("->Poi Menu"), this);
+	connect(_togglePoiMenu, SIGNAL(triggered()), this, SLOT(createPoiMenu()));
+	_toggleMapMenu = new QAction(tr("->Map Menu"), this);
+	connect(_toggleMapMenu, SIGNAL(triggered()), this, SLOT(createMapMenu()));
+#endif
 
 	// Action Groups
 	_fileActionGroup = new QActionGroup(this);
@@ -225,11 +345,13 @@ void GUI::createActions()
 	_openFileAction->setShortcut(OPEN_SHORTCUT);
 	connect(_openFileAction, SIGNAL(triggered()), this, SLOT(openFile()));
 	addAction(_openFileAction);
+#ifndef Q_WS_MAEMO_5
 	_printFileAction = new QAction(QIcon(QPixmap(PRINT_FILE_ICON)),
 	  tr("Print..."), this);
 	_printFileAction->setActionGroup(_fileActionGroup);
 	connect(_printFileAction, SIGNAL(triggered()), this, SLOT(printFile()));
 	addAction(_printFileAction);
+#endif
 	_exportFileAction = new QAction(QIcon(QPixmap(EXPORT_FILE_ICON)),
 	  tr("Export to PDF..."), this);
 	_exportFileAction->setShortcut(EXPORT_SHORTCUT);
@@ -329,6 +451,22 @@ void GUI::createActions()
 	connect(_showGraphsAction, SIGNAL(triggered(bool)), this,
 	  SLOT(showGraphs(bool)));
 	addAction(_showGraphsAction);
+#ifdef Q_WS_MAEMO_5
+	_showMapWidgetAction = new QAction(QIcon(QPixmap(SHOW_GRAPHS_ICON)),
+	  tr("Show map widget"), this);
+	_showMapWidgetAction->setCheckable(true);
+	_showMapWidgetAction->setShortcut(SHOW_MAPWIDGET_SHORTCUT);
+	connect(_showMapWidgetAction, SIGNAL(triggered(bool)), this,
+	  SLOT(showMapWidget(bool)));
+	addAction(_showMapWidgetAction);
+	_showStatusbarAction = new QAction(QIcon(QPixmap(SHOW_GRAPHS_ICON)),
+	  tr("Show statusbar"), this);
+	_showStatusbarAction->setCheckable(true);
+	_showStatusbarAction->setShortcut(SHOW_STATUSBAR_SHORTCUT);
+	connect(_showStatusbarAction, SIGNAL(triggered(bool)), this,
+	  SLOT(showStatusbar(bool)));
+	addAction(_showStatusbarAction);
+#endif
 	ag = new QActionGroup(this);
 	ag->setExclusive(true);
 	_distanceGraphAction = new QAction(tr("Distance"), this);
@@ -353,8 +491,14 @@ void GUI::createActions()
 	// Settings actions
 	_showToolbarsAction = new QAction(tr("Show toolbars"), this);
 	_showToolbarsAction->setCheckable(true);
+#ifdef Q_WS_MAEMO_5
+	_showToolbarsAction->setShortcut(SHOW_TOOLBARS_SHORTCUT);
+#endif
 	connect(_showToolbarsAction, SIGNAL(triggered(bool)), this,
 	  SLOT(showToolbars(bool)));
+#ifdef Q_WS_MAEMO_5
+	addAction(_showToolbarsAction);
+#endif
 	ag = new QActionGroup(this);
 	ag->setExclusive(true);
 	_metricUnitsAction = new QAction(tr("Metric"), this);
@@ -394,9 +538,97 @@ void GUI::createActions()
 	_firstAction->setActionGroup(_navigationActionGroup);
 	connect(_firstAction, SIGNAL(triggered()), this, SLOT(first()));
 }
+#ifdef Q_WS_MAEMO_5
+void GUI::createMapMenu()
+{
+	if (_stdMenu->menuAction()->isVisible())
+	{
+		_mapMenu->menuAction()->setVisible(true);
+		_stdMenu->menuAction()->setVisible(false);
+		_toggleMapMenu->setText("->Standard Menu");
+		//qApp->processEvents();
+		//click();
+	}
+	else
+	{
+		_mapMenu->menuAction()->setVisible(false);
+		_stdMenu->menuAction()->setVisible(true);
+		_toggleMapMenu->setText("->Map Menu");
+
+	}
+	qApp->processEvents();
+	click();
+}
+void GUI::createPoiMenu()
+{
+	if (_stdMenu->menuAction()->isVisible())
+	{
+		_poiMenu->menuAction()->setVisible(true);
+		_stdMenu->menuAction()->setVisible(false);
+		_togglePoiMenu->setText("->Standard Menu");
+		//qApp->processEvents();
+		//click();
+	}
+	else
+	{
+		_poiMenu->menuAction()->setVisible(false);
+		_stdMenu->menuAction()->setVisible(true);
+		_togglePoiMenu->setText("->POI Menu");
+
+	}
+	qApp->processEvents();
+	click();
+}
+#endif
 
 void GUI::createMenus()
 {
+#ifdef Q_WS_MAEMO_5
+	_stdMenu = menuBar()->addMenu(tr("STD"));
+	_stdMenu->addAction(_openFileAction);
+	//menuBar()->addAction(_printFileAction);
+	_stdMenu->addAction(_exportFileAction);
+	_stdMenu->addAction(_reloadFileAction);
+	_stdMenu->addAction(_closeFileAction);
+	//menuBar()->addActions(_mapActions);
+
+	_stdMenu->addAction(_clearMapCacheAction);
+
+	_stdMenu->addAction(_showToolbarsAction);
+	_stdMenu->addAction(_fullscreenAction);
+	_stdMenu->addAction(_dataSourcesAction);
+	_stdMenu->addAction(_keysAction);
+	_stdMenu->addAction(_aboutAction);
+	_stdMenu->addAction(_togglePoiMenu);
+	_stdMenu->addAction(_toggleMapMenu);
+	_stdMenu->addAction(_openOptionsAction);
+
+	_mapMenu = menuBar()->addMenu(tr("Map"));
+	_mapMenu->addAction(_showMapAction);
+	_mapMenu->addAction(_showMapWidgetAction);
+	_mapMenu->addAction(_showGraphGridAction);
+	_mapMenu->addAction(_showGraphsAction);
+	_mapMenu->addAction(_showWaypointLabelsAction);
+	_mapMenu->addAction(_showRouteWaypointsAction);
+	_mapMenu->addAction(_showTracksAction);
+	_mapMenu->addAction(_showRoutesAction);
+	_mapMenu->addAction(_showWaypointsAction);
+	_mapMenu->addAction(_showToolbarsAction);
+	_mapMenu->menuAction()->setVisible(false);
+	_mapMenu->addAction(_toggleMapMenu);
+	_poiMenu = menuBar()->addMenu(tr("POI"));
+	_poiFilesMenu = _poiMenu->addMenu(tr("POI files"));
+	_poiFilesMenu->addActions(_poiFilesActions);
+	_poiMenu->addAction(_openPOIAction);
+	_poiMenu->addAction(_closePOIAction);
+	_poiMenu->addAction(_showPOILabelsAction);
+	_poiMenu->addAction(_overlapPOIAction);
+	_poiMenu->addAction(_showPOIAction);
+	_poiMenu->addAction(_togglePoiMenu);
+
+	_poiMenu->menuAction()->setVisible(false);
+
+#else
 	QMenu *fileMenu = menuBar()->addMenu(tr("File"));
 	fileMenu->addAction(_openFileAction);
 	fileMenu->addSeparator();
@@ -462,6 +694,7 @@ void GUI::createMenus()
 	helpMenu->addAction(_keysAction);
 	helpMenu->addSeparator();
 	helpMenu->addAction(_aboutAction);
+#endif
 }
 
 void GUI::createToolBars()
@@ -474,8 +707,9 @@ void GUI::createToolBars()
 	_fileToolBar->addAction(_openFileAction);
 	_fileToolBar->addAction(_reloadFileAction);
 	_fileToolBar->addAction(_closeFileAction);
+#ifndef Q_WS_MAEMO_5
 	_fileToolBar->addAction(_printFileAction);
-
+#endif
 	_showToolBar = addToolBar(tr("Show"));
 	_showToolBar->addAction(_showPOIAction);
 	_showToolBar->addAction(_showMapAction);
@@ -486,6 +720,14 @@ void GUI::createToolBars()
 	_navigationToolBar->addAction(_prevAction);
 	_navigationToolBar->addAction(_nextAction);
 	_navigationToolBar->addAction(_lastAction);
+#ifdef Q_WS_MAEMO_5
+	_fileToolBar->setFixedHeight(40);
+	//_fileToolBar->setFixedWidth(40);
+	_showToolBar->setFixedHeight(40);
+	//_showToolBar->setFixedWidth(40);
+	_navigationToolBar->setFixedHeight(40);
+	//_navigationToolBar->setFixedWidth(40);
+#endif
 }
 
 void GUI::createPathView()
@@ -510,6 +752,9 @@ void GUI::createGraphTabs()
 	_graphTabWidget->setSizePolicy(QSizePolicy(QSizePolicy::Ignored,
 	  QSizePolicy::Preferred));
 	_graphTabWidget->setMinimumHeight(200);
+#ifdef Q_WS_MAEMO_5
+	_graphTabWidget->setStyleSheet("QTabBar::tab { height: 40;}");
+#endif
 #ifdef Q_OS_WIN32
 	_graphTabWidget->setDocumentMode(true);
 #endif // Q_OS_WIN32
@@ -533,6 +778,9 @@ void GUI::createStatusBar()
 	_timeLabel = new QLabel();
 	_distanceLabel->setAlignment(Qt::AlignHCenter);
 	_timeLabel->setAlignment(Qt::AlignHCenter);
+#ifdef Q_WS_MAEMO_5
+	statusBar()->setFixedHeight(20);
+#endif
 
 	statusBar()->addPermanentWidget(_fileNameLabel, 8);
 	statusBar()->addPermanentWidget(_distanceLabel, 1);
@@ -546,7 +794,7 @@ void GUI::about()
 
 	msgBox.setWindowTitle(tr("About GPXSee"));
 	msgBox.setText("<h2>" + QString(APP_NAME) + "</h2><p><p>" + tr("Version ")
-	  + APP_VERSION + " (" + CPU_ARCH + ", Qt " + QT_VERSION_STR + ")</p>");
+	  + APP_VERSION + " (" + CPU_ARCH + ", Qt " + QT_VERSION_STR + ") for maemo by Halftux</p>");
 	msgBox.setInformativeText("<table width=\"300\"><tr><td>"
 	  + tr("GPXSee is distributed under the terms of the GNU General Public "
 	  "License version 3. For more info about GPXSee visit the project "
@@ -563,7 +811,49 @@ void GUI::about()
 void GUI::keys()
 {
 	QMessageBox msgBox(this);
+#ifdef Q_WS_MAEMO_5
+	msgBox.setWindowTitle(tr("Keyboard controls"));
+	msgBox.setText(QString("<h3>") + tr("Keyboard controls") + QString("</h3>"));
+	msgBox.setInformativeText(
+	  QString("<div><table width=\"400\"><tr><td>") + tr("Next file")
+	  + QString("</td><td><i>RIGHT</i></td></tr><tr><td>") + tr("Previous file")
+	  + QString("</td><td><i>LEFT</i></td></tr><tr><td>")
+	  + tr("First file") + QString("</td><td><i>UP</i></td></tr><tr><td>")
+	  + tr("Last file") + QString("</td><td><i>DOWN</i></td></tr><tr><td>")
+	  + tr("Zoom") + QString("</td><td><i>Vol.up/Vol.down</i></td></tr><tr><td>")
+	  + tr("Append modifier") + QString("</td><td><i>SHIFT</i></td></tr>"
+	  "<tr><td></td><td></td></tr><tr><td>")
+	  + tr("Next map") + QString("</td><td><i>")
+	  + _nextMapAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Previous map") + QString("</td><td><i>")
+	  + _prevMapAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Open file") + QString("</td><td><i>")
+	  + _openFileAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Close file") + QString("</td><td><i>")
+	  + _closeFileAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Reload file") + QString("</td><td><i>")
+	  + _reloadFileAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Show POI") + QString("</td><td><i>")
+	  + _showPOIAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Show Map") + QString("</td><td><i>")
+	  + _showMapAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Show MapWidget") + QString("</td><td><i>")
+	  + _showMapWidgetAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Show Graph") + QString("</td><td><i>")
+	  + _showGraphsAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Show Statusbar") + QString("</td><td><i>")
+	  + _showStatusbarAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Show Toolbar") + QString("</td><td><i>")
+	  + _showToolbarsAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Distance") + QString("</td><td><i>")
+	  + _distanceGraphAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Time") + QString("</td><td><i>")
+	  + _timeGraphAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Fullscreen") + QString("</td><td><i>")
+	  + _fullscreenAction->shortcut().toString() + QString("</i></td></tr>"
+	  "</table></div>"));
 
+#else
 	msgBox.setWindowTitle(tr("Keyboard controls"));
 	msgBox.setText("<h3>" + tr("Keyboard controls") + "</h3>");
 	msgBox.setInformativeText(
@@ -579,6 +869,7 @@ void GUI::keys()
 	  + tr("Next map") + "</td><td><i>" + NEXT_MAP_SHORTCUT.toString()
 	  + "</i></td></tr><tr><td>" + tr("Previous map") + "</td><td><i>"
 	  + PREV_MAP_SHORTCUT.toString() + "</i></td></tr></table></div>");
+#endif
 
 	msgBox.exec();
 }
@@ -744,6 +1035,7 @@ void GUI::closePOIFiles()
 
 	_poi->clear();
 }
+#ifndef Q_WS_MAEMO_5
 
 void GUI::printFile()
 {
@@ -753,12 +1045,16 @@ void GUI::printFile()
 	if (dialog.exec() == QDialog::Accepted)
 		plot(&printer);
 }
+#endif
 
 void GUI::openOptions()
 {
 	Options options(_options);
-
+#ifdef Q_WS_MAEMO_5
+	optDialog dialog(&options, this);
+#else
 	OptionsDialog dialog(&options, this);
+#endif
 	if (dialog.exec() != QDialog::Accepted)
 		return;
 
@@ -800,7 +1096,11 @@ void GUI::openOptions()
 
 void GUI::exportFile()
 {
+#ifdef Q_WS_MAEMO_5
+	expDialog dialog(&_export, this);
+#else
 	ExportDialog dialog(&_export, this);
+#endif
 	if (dialog.exec() != QDialog::Accepted)
 		return;
 
@@ -888,7 +1188,7 @@ void GUI::plot(QPrinter *printer)
 			if (_tabs.at(i)->count())
 				cnt++;
 
-		qreal sp = ratio * 20;
+		double sp = ratio * 20;
 		gh = qMin((printer->height() - ((cnt - 1) * sp))/(qreal)cnt,
 		  0.20 * printer->height());
 
@@ -976,7 +1276,17 @@ void GUI::showMap(bool show)
 	else
 		_pathView->setMap(0);
 }
+#ifdef Q_WS_MAEMO_5
+void GUI::showMapWidget(bool show)
+{
+	_pathView->setHidden(!show);
+}
 
+void GUI::showStatusbar(bool show)
+{
+	statusBar()->setHidden(!show);
+}
+#endif
 void GUI::showGraphs(bool show)
 {
 	_graphTabWidget->setHidden(!show);
@@ -1005,18 +1315,34 @@ void GUI::showFullscreen(bool show)
 		_showGraphs = _showGraphsAction->isChecked();
 
 		statusBar()->hide();
+#ifndef Q_WS_MAEMO_5
 		menuBar()->hide();
+#endif
 		showToolbars(false);
 		showGraphs(false);
 		_showGraphsAction->setChecked(false);
 		_pathView->setFrameStyle(QFrame::NoFrame);
+#ifdef Q_WS_MAEMO_5
+		showStatusbar(false);
+		_showStatusbarAction->setChecked(false);
+		_showToolbarsAction->setChecked(false);
+#endif
 
 		showFullScreen();
 	} else {
 		statusBar()->show();
+#ifndef Q_WS_MAEMO_5
 		menuBar()->show();
 		if (_showToolbarsAction->isChecked())
 			showToolbars(true);
+#endif
+#ifdef Q_WS_MAEMO_5
+
+		showStatusbar(true);
+		_showStatusbarAction->setChecked(true);
+		_showToolbarsAction->setChecked(false);
+		showToolbars(false);
+#endif
 		_showGraphsAction->setChecked(_showGraphs);
 		if (_showGraphsAction->isEnabled())
 			showGraphs(_showGraphs);
@@ -1081,6 +1407,14 @@ void GUI::updateStatusBarInfo()
 		_timeLabel->setToolTip(Format::timeSpan(movingTime()));
 	else
 		_timeLabel->setToolTip(QString());
+
+#ifdef Q_WS_MAEMO_5
+	QFont fontstatus = _fileNameLabel->font();
+	fontstatus.setPointSize(10);
+	_fileNameLabel->setFont(fontstatus);
+	_distanceLabel->setFont(fontstatus);
+	_timeLabel->setFont(fontstatus);
+#endif
 }
 
 void GUI::updateWindowTitle()
@@ -1267,7 +1601,15 @@ void GUI::keyPressEvent(QKeyEvent *event)
 		case LAST_KEY:
 			file = _browser->last();
 			break;
-
+#ifdef Q_WS_MAEMO_5
+		case Qt::Key_F7:
+		qDebug()<< "f7";
+			emit s_zoom("in");
+			break;
+		case Qt::Key_F8:
+			emit s_zoom("out");
+			break;
+#endif
 		case Qt::Key_Escape:
 			if (_fullscreenAction->isChecked()) {
 				_fullscreenAction->setChecked(false);
@@ -1291,6 +1633,9 @@ void GUI::closeEvent(QCloseEvent *event)
 
 void GUI::dragEnterEvent(QDragEnterEvent *event)
 {
+#ifdef Q_WS_MAEMO_5
+	event->ignore();
+#else
 	if (!event->mimeData()->hasUrls())
 		return;
 	if (event->proposedAction() != Qt::CopyAction)
@@ -1302,13 +1647,18 @@ void GUI::dragEnterEvent(QDragEnterEvent *event)
 			return;
 
 	event->acceptProposedAction();
+#endif
 }
 
 void GUI::dropEvent(QDropEvent *event)
 {
+#ifdef Q_WS_MAEMO_5
+	event->ignore();
+#else
 	QList<QUrl> urls = event->mimeData()->urls();
 	for (int i = 0; i < urls.size(); i++)
 		openFile(urls.at(i).toLocalFile());
+#endif
 }
 
 void GUI::writeSettings()
@@ -1331,6 +1681,12 @@ void GUI::writeSettings()
 	if (_showToolbarsAction->isChecked() != SHOW_TOOLBARS_DEFAULT)
 		settings.setValue(SHOW_TOOLBARS_SETTING,
 		  _showToolbarsAction->isChecked());
+#ifdef Q_WS_MAEMO_5
+	if (_showStatusbarAction->isChecked() != SHOW_STATUSBAR_DEFAULT)
+		settings.setValue(SHOW_STATUSBAR_SETTING,
+		  _showStatusbarAction->isChecked());
+	settings.setValue("lastfile",_files.at(0));
+#endif
 	settings.endGroup();
 
 	settings.beginGroup(MAP_SETTINGS_GROUP);
@@ -1343,9 +1699,9 @@ void GUI::writeSettings()
 	settings.beginGroup(GRAPH_SETTINGS_GROUP);
 	if (_showGraphsAction->isChecked() != SHOW_GRAPHS_DEFAULT)
 		settings.setValue(SHOW_GRAPHS_SETTING, _showGraphsAction->isChecked());
-	if ((_timeGraphAction->isChecked() ? Time : Distance) != GRAPH_TYPE_DEFAULT)
+	if ((_timeGraphAction->isChecked() ? gtTime : gtDistance) != GRAPH_TYPE_DEFAULT)
 		settings.setValue(GRAPH_TYPE_SETTING, _timeGraphAction->isChecked()
-		  ? Time : Distance);
+		  ? gtTime : gtDistance);
 	if (_showGraphGridAction->isChecked() != SHOW_GRAPH_GRIDS_DEFAULT)
 		settings.setValue(SHOW_GRAPH_GRIDS_SETTING,
 		  _showGraphGridAction->isChecked());
@@ -1465,6 +1821,14 @@ void GUI::readSettings()
 		showToolbars(false);
 	else
 		_showToolbarsAction->setChecked(true);
+#ifdef Q_WS_MAEMO_5
+	QString lastfile;
+	if (!settings.value(SHOW_STATUSBAR_SETTING, SHOW_STATUSBAR_DEFAULT).toBool())
+		showStatusbar(false);
+	else
+		_showStatusbarAction->setChecked(true);
+	lastfile=settings.value("lastfile").toString();
+#endif
 	settings.endGroup();
 
 	settings.beginGroup(MAP_SETTINGS_GROUP);
@@ -1486,7 +1850,7 @@ void GUI::readSettings()
 	else
 		_showGraphsAction->setChecked(true);
 	if (settings.value(GRAPH_TYPE_SETTING, GRAPH_TYPE_DEFAULT).toInt()
-	  == Time) {
+	  == gtTime) {
 		setTimeGraph();
 		_timeGraphAction->setChecked(true);
 	} else
@@ -1633,6 +1997,9 @@ void GUI::readSettings()
 	_poi->setRadius(_options.poiRadius);
 
 	settings.endGroup();
+#ifdef Q_WS_MAEMO_5
+	if (lastfile!=" " && lastfile!="") openFile(lastfile);
+#endif
 }
 
 int GUI::mapIndex(const QString &name)

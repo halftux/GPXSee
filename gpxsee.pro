@@ -1,4 +1,4 @@
-TARGET = GPXSee
+TARGET = gpxsee
 VERSION = 3.8
 QT += core \
     gui \
@@ -7,6 +7,7 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 greaterThan(QT_MAJOR_VERSION, 4): QT += printsupport
 lessThan(QT_VERSION, 5.4): QT += opengl
 macx: QT += opengl
+maemo5: QT += maemo5
 HEADERS += src/config.h \
     src/icons.h \
     src/gui.h \
@@ -77,6 +78,7 @@ HEADERS += src/config.h \
     src/colorbox.h \
     src/stylecombobox.h \
     src/opengl.h
+
 SOURCES += src/main.cpp \
     src/gui.cpp \
     src/poi.cpp \
@@ -131,9 +133,25 @@ SOURCES += src/main.cpp \
     src/optionsdialog.cpp \
     src/colorbox.cpp \
     src/stylecombobox.cpp
+
 RESOURCES += gpxsee.qrc
 TRANSLATIONS = lang/gpxsee_cs.ts \
-    lang/gpxsee_sv.ts
+    lang/gpxsee_sv.ts \
+    lang/gpxsee_de.ts
+
+maemo5 {
+SOURCES +=     src/expdialog.cpp \
+    src/optdialog.cpp
+SOURCES -=     src/exportdialog.cpp \
+    src/optionsdialog.cpp
+HEADERS +=     src/expdialog.h \
+    src/optdialog.h
+HEADERS -=     src/exportdialog.h \
+    src/optionsdialog.h
+FORMS += \
+    src/expdialog.ui \
+    src/optdialog.ui
+}
 macx {
     ICON = icons/gpxsee.icns
     QMAKE_INFO_PLIST = Info.plist
@@ -157,3 +175,20 @@ win32 {
         icons/nmea.ico
 }
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
+
+maemo5 {
+    target.path = /opt/gpxsee/bin
+    INSTALLS += target
+}
+
+maemo5 {
+    desktopfile.files = qtc_packaging/gpxsee.desktop
+    desktopfile.path = /usr/share/applications/hildon
+    INSTALLS += desktopfile
+}
+
+maemo5 {
+    icon.files = qtc_packaging/gpxsee.png
+    icon.path = /usr/share/icons/hicolor/64x64/apps
+    INSTALLS += icon
+}
