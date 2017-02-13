@@ -3,7 +3,6 @@
 #include <QMouseEvent>
 #include <QPaintEngine>
 #include <QPaintDevice>
-#include <QSysInfo>
 #include "opengl.h"
 #include "config.h"
 #include "axisitem.h"
@@ -25,6 +24,7 @@ GraphView::GraphView(QWidget *parent)
 	_scene = new QGraphicsScene(this);
 	setScene(_scene);
 
+	setBackgroundBrush(QBrush(Qt::white));
 	setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
 	setRenderHint(QPainter::Antialiasing, true);
 	setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -458,11 +458,8 @@ void GraphView::setGraphWidth(int width)
 
 void GraphView::useOpenGL(bool use)
 {
-	if (use) {
-#ifdef Q_OS_WIN32
-		if (QSysInfo::WindowsVersion >= QSysInfo::WV_VISTA)
-#endif // Q_OS_WIN32
+	if (use)
 		setViewport(new OPENGL_WIDGET);
-	} else
+	else
 		setViewport(new QWidget);
 }

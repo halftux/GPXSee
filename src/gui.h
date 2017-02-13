@@ -6,6 +6,7 @@
 #include <QDate>
 #include <QPrinter>
 #include "units.h"
+#include "timetype.h"
 #include "graph.h"
 #include "poi.h"
 #ifdef Q_WS_MAEMO_5
@@ -80,6 +81,8 @@ private slots:
 	void last();
 	void first();
 
+	void setTotalTime() {setTimeType(Total);}
+	void setMovingTime() {setTimeType(Moving);}
 	void setMetricUnits() {setUnits(Metric);}
 	void setImperialUnits() {setUnits(Imperial);}
 	void setDistanceGraph() {setGraphType(gtDistance);}
@@ -125,7 +128,9 @@ private:
 	void updateGraphTabs();
 	void updatePathView();
 
+	TimeType timeType() const;
 	Units units() const;
+	void setTimeType(TimeType type);
 	void setUnits(Units units);
 	void setGraphType(GraphType type);
 
@@ -179,6 +184,8 @@ private:
 	QAction *_firstAction;
 	QAction *_metricUnitsAction;
 	QAction *_imperialUnitsAction;
+	QAction *_totalTimeAction;
+	QAction *_movingTimeAction;
 	QAction *_nextMapAction;
 	QAction *_prevMapAction;
 	QAction *_showTracksAction;

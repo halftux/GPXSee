@@ -1,5 +1,6 @@
-TARGET = gpxsee
-VERSION = 3.8
+TARGET = GPXSee
+VERSION = 3.9
+
 QT += core \
     gui \
     network
@@ -77,7 +78,8 @@ HEADERS += src/config.h \
     src/optionsdialog.h \
     src/colorbox.h \
     src/stylecombobox.h \
-    src/opengl.h
+    src/opengl.h \
+    src/timetype.h
 
 SOURCES += src/main.cpp \
     src/gui.cpp \
