@@ -1,4 +1,4 @@
-TARGET = GPXSee
+TARGET = gpxsee
 VERSION = 3.9
 
 QT += core \
