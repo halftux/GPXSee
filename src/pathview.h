@@ -25,7 +25,7 @@ class PathView : public QGraphicsView
 	Q_OBJECT
 
 public:
-	PathView(QWidget *parent = 0);
+	PathView(Map *map, POI *poi, QWidget *parent = 0);
 	~PathView();
 
 	QList<PathItem*> loadData(const Data &data);
@@ -44,12 +44,14 @@ public:
 	void clear();
 
 	void useOpenGL(bool use);
+	void setRescale(bool rescale);
 
 public slots:
 	void redraw();
 #ifdef Q_WS_MAEMO_5
 	void zoom_maemo(QString direction);
 #endif
+	void showMap(bool show);
 	void showPOI(bool show);
 	void setPOIOverlap(bool overlap);
 	void showWaypointLabels(bool show);
@@ -74,14 +76,15 @@ private:
 	void loadPOI();
 	void clearPOI();
 
-	qreal contentsScale() const;
-	QPointF contentsCenter() const;
-	void rescale(int zoom);
-	void zoom(int z, const QPoint &pos);
+	qreal mapScale() const;
+	QPointF contentCenter() const;
+	void rescale();
+	void zoom(const QPoint &pos, const Coordinates &c);
 	void updatePOIVisibility();
 	void updateWaypointsBoundingRect(const QPointF &wp);
 #ifdef Q_WS_MAEMO_5
 	void mousePressEvent(QMouseEvent *e);
+	bool _rescale;
 #endif
 
 	void mouseDoubleClickEvent(QMouseEvent *event);
@@ -99,7 +102,6 @@ private:
 	QList<WaypointItem*> _waypoints;
 	QHash<Waypoint, WaypointItem*> _pois;
 
-	int _zoom;
 	QRectF _tr, _rr, _wr;
 	QPointF _wp;
 	qreal _res;
@@ -109,6 +111,7 @@ private:
 	Palette _palette;
 	Units _units;
 
+	bool _showMap;
 	bool _showTracks;
 	bool _showRoutes;
 	bool _showWaypoints;

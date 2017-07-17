@@ -3,7 +3,8 @@ GPXSee is a Qt-based GPS log file viewer and analyzer that supports GPX, TCX,
 KML, FIT, IGC and NMEA files.
 
 ## Features
-* User-definable map sources.
+* User-definable online maps.
+* Offline maps (image-based OziExplorer maps and tiled TrekBuddy maps/atlases).
 * Elevation, speed, heart rate, cadence, power and temperature graphs.
 * Support for multiple tracks in one view.
 * Support for POI files.
@@ -12,7 +13,7 @@ KML, FIT, IGC and NMEA files.
 * Native GUI for Windows, Mac OS X and Linux.
 * Opens GPX, TCX, FIT, KML, IGC, NMEA and Garmin CSV files.
 
-![GPXSee - Linux](https://a.fsdn.com/con/app/proj/gpxsee/screenshots/linux.png)
+![GPXSee - Linux](https://a.fsdn.com/con/app/proj/gpxsee/screenshots/linux2.png)
 
 ## Build
 ### Linux/OS X
@@ -29,8 +30,8 @@ nmake release
 ```
 
 ## Binaries
-* Windows & OS X builds: http://sourceforge.net/projects/gpxsee
-* Linux packages: https://build.opensuse.org/project/repositories/home:tumic:GPXSee
+* [Windows & OS X builds](http://sourceforge.net/projects/gpxsee)
+* [Linux packages](http://software.opensuse.org/download.html?project=home%3Atumic%3AGPXSee&package=gpxsee)
 
 ## Homepage
 GPXSee homepage: http://tumic.wz.cz/gpxsee

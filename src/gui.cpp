@@ -28,6 +28,8 @@
 #include "data.h"
 #include "map.h"
 #include "maplist.h"
+#include "mapdir.h"
+#include "emptymap.h"
 #include "elevationgraph.h"
 #include "speedgraph.h"
 #include "heartrategraph.h"
@@ -36,7 +38,6 @@
 #include "powergraph.h"
 #include "pathview.h"
 #include "trackinfo.h"
-#include "downloader.h"
 #include "filebrowser.h"
 #include "cpuarch.h"
 #include "graphtab.h"
@@ -47,10 +48,11 @@
  #include <QtGui/QX11Info>
  #include <X11/Xlib.h>
  #include <X11/Xatom.h>
+#include <QTimer>
 #endif
 
 
-GUI::GUI(QWidget *parent) : QMainWindow(parent)
+GUI::GUI()
 {
 	loadMaps();
 	loadPOIs();
@@ -105,6 +107,10 @@ GUI::GUI(QWidget *parent) : QMainWindow(parent)
 	_showMapWidgetAction->setChecked(true);
 #endif
 	readSettings();
+#ifdef Q_WS_MAEMO_5
+	//qDebug() << "rescale true from gui";
+	_pathView->setRescale(true);
+#endif
 }
 
 GUI::~GUI()
@@ -229,15 +235,33 @@ void GUI::createBrowser()
 	_browser = new FileBrowser(this);
 	_browser->setFilter(filter);
 }
-
+#ifdef Q_WS_MAEMO_5
+void GUI::onProcessStarted()
+{
+	this->setAttribute(Qt::WA_Maemo5ShowProgressIndicator, true);
+}
+void GUI::onProcessReady()
+{
+	this->setAttribute(Qt::WA_Maemo5ShowProgressIndicator, false);
+}
+#endif
 void GUI::loadMaps()
 {
-	MapList ml(new Downloader(this));
+	QList<Map*> online, offline;
 
 	if (QFile::exists(USER_MAP_FILE))
-		_maps = ml.load(USER_MAP_FILE, this);
+		online = MapList::load(USER_MAP_FILE, this);
 	else
-		_maps = ml.load(GLOBAL_MAP_FILE, this);
+		online = MapList::load(GLOBAL_MAP_FILE, this);
+
+	if (QFile::exists(USER_MAP_DIR))
+		offline = MapDir::load(USER_MAP_DIR, this);
+	else
+		offline = MapDir::load(GLOBAL_MAP_DIR, this);
+
+	_maps = online + offline;
+
+	_map = _maps.isEmpty() ? new EmptyMap(this) : _maps.first();
 }
 
 void GUI::loadPOIs()
@@ -255,11 +279,11 @@ void GUI::loadPOIs()
 
 	for (int i = 0; i < list.size(); ++i) {
 		if (!_poi->loadFile(list.at(i).absoluteFilePath())) {
-			fprintf(stderr, "Error loading POI file: %s: %s\n",
+			qWarning("Error loading POI file: %s: %s\n",
 			  qPrintable(list.at(i).fileName()),
 			  qPrintable(_poi->errorString()));
 			if (_poi->errorLine())
-				fprintf(stderr, "Line: %d\n", _poi->errorLine());
+				qWarning("Line: %d\n", _poi->errorLine());
 		}
 	}
 }
@@ -403,7 +427,8 @@ void GUI::createActions()
 	  this);
 	_showMapAction->setCheckable(true);
 	_showMapAction->setShortcut(SHOW_MAP_SHORTCUT);
-	connect(_showMapAction, SIGNAL(triggered(bool)), this, SLOT(showMap(bool)));
+	connect(_showMapAction, SIGNAL(triggered(bool)), _pathView,
+	  SLOT(showMap(bool)));
 	addAction(_showMapAction);
 	_clearMapCacheAction = new QAction(tr("Clear tile cache"), this);
 	connect(_clearMapCacheAction, SIGNAL(triggered()), this,
@@ -750,15 +775,13 @@ void GUI::createToolBars()
 
 void GUI::createPathView()
 {
-	_pathView = new PathView(this);
+	_pathView = new PathView(_map, _poi, this);
 	_pathView->setSizePolicy(QSizePolicy(QSizePolicy::Ignored,
 	  QSizePolicy::Expanding));
 	_pathView->setMinimumHeight(200);
 #ifdef Q_OS_WIN32
 	_pathView->setFrameShape(QFrame::NoFrame);
 #endif // Q_OS_WIN32
-
-	_pathView->setPOI(_poi);
 }
 
 void GUI::createGraphTabs()
@@ -899,16 +922,24 @@ void GUI::dataSources()
 	msgBox.setWindowTitle(tr("Data sources"));
 	msgBox.setText("<h3>" + tr("Data sources") + "</h3>");
 	msgBox.setInformativeText(
-	  "<h4>" + tr("Map sources") + "</h4><p>"
-	  + tr("Map (tiles) source URLs are read on program startup from the "
+	  "<h4>" + tr("Online maps") + "</h4><p>"
+	  + tr("Online map URLs are read on program startup from the "
 		"following file:")
-		+ "</p><p><code>" + USER_MAP_FILE + "</code></p><p>"
-		+ tr("The file format is one map entry per line, consisting of the map "
-		  "name and tiles URL delimited by a TAB character. The tile X and Y "
-		  "coordinates are replaced with $x and $y in the URL and the zoom "
-		  "level is replaced with $z. An example map file could look like:")
-		+ "</p><p><code>Map1	http://tile.server.com/map/$z/$x/$y.png"
+	  + "</p><p><code>" + USER_MAP_FILE + "</code></p><p>"
+	  + tr("The file format is one map entry per line, consisting of the map "
+		"name and tiles URL delimited by a TAB character. The tile X and Y "
+		"coordinates are replaced with $x and $y in the URL and the zoom "
+		"level is replaced with $z. An example map file could look like:")
+	  + "</p><p><code>Map1	http://tile.server.com/map/$z/$x/$y.png"
 		  "<br/>Map2	http://mapserver.org/map/$z-$x-$y</code></p>"
+
+	  + "<h4>" + tr("Ofline maps") + "</h4><p>"
+	  + tr("Offline maps are loaded on program startup from the following "
+		"directory:")
+	  + "</p><p><code>" + USER_MAP_DIR + "</code></p><p>"
+	  + tr("The expected structure is one map/atlas in a separate subdirectory."
+		" Supported map formats are OziMap image-based maps and tiled TrekBuddy"
+		" maps/atlases (tared and non-tared).") + "</p>"
 
 	  + "<h4>" + tr("POIs") + "</h4><p>"
 	  + tr("To make GPXSee load a POI file automatically on startup, add "
@@ -988,7 +1019,7 @@ bool GUI::loadFile(const QString &fileName)
 			if (data.tracks().count() == 1 && !data.routes().count())
 				_pathName = data.tracks().first()->name();
 			else if (data.routes().count() == 1 && !data.tracks().count())
-				_pathName = data.routes().first()->routeData().name();
+				_pathName = data.routes().first()->name();
 		} else
 			_pathName = QString();
 
@@ -1115,12 +1146,22 @@ void GUI::openOptions()
 void GUI::exportFile()
 {
 #ifdef Q_WS_MAEMO_5
+	setAttribute(Qt::WA_Maemo5ShowProgressIndicator, true);
+	QTimer::singleShot(0, this, SLOT(onProcessStarted()));
+#endif
+#ifdef Q_WS_MAEMO_5
 	expDialog dialog(&_export, this);
 #else
 	ExportDialog dialog(&_export, this);
 #endif
 	if (dialog.exec() != QDialog::Accepted)
+	{
+#ifdef Q_WS_MAEMO_5
+	setAttribute(Qt::WA_Maemo5ShowProgressIndicator, false);
+	QTimer::singleShot(0, this, SLOT(onProcessReady()));
+#endif
 		return;
+	}
 
 	QPrinter printer(QPrinter::HighResolution);
 	printer.setOutputFormat(QPrinter::PdfFormat);
@@ -1132,7 +1173,13 @@ void GUI::exportFile()
 	printer.setPageMargins(_export.margins.left(), _export.margins.top(),
 	  _export.margins.right(), _export.margins.bottom(), QPrinter::Millimeter);
 
+
+
 	plot(&printer);
+#ifdef Q_WS_MAEMO_5
+	setAttribute(Qt::WA_Maemo5ShowProgressIndicator, false);
+	QTimer::singleShot(0, this, SLOT(onProcessReady()));
+#endif
 }
 
 void GUI::plot(QPrinter *printer)
@@ -1218,6 +1265,7 @@ void GUI::plot(QPrinter *printer)
 			}
 		}
 	}
+	p.end();
 }
 
 void GUI::reloadFile()
@@ -1287,13 +1335,6 @@ void GUI::closeAll()
 	updatePathView();
 }
 
-void GUI::showMap(bool show)
-{
-	if (show)
-		_pathView->setMap(_currentMap);
-	else
-		_pathView->setMap(0);
-}
 #ifdef Q_WS_MAEMO_5
 void GUI::showMapWidget(bool show)
 {
@@ -1302,16 +1343,25 @@ void GUI::showMapWidget(bool show)
 
 void GUI::showStatusbar(bool show)
 {
+	_pathView->setRescale(false);
+	//qDebug() << "rescale false";
 	statusBar()->setHidden(!show);
 }
 #endif
+
 void GUI::showGraphs(bool show)
 {
+#ifdef Q_WS_MAEMO_5
+	_pathView->setRescale(false);
+#endif
 	_graphTabWidget->setHidden(!show);
 }
 
 void GUI::showToolbars(bool show)
 {
+#ifdef Q_WS_MAEMO_5
+	_pathView->setRescale(false);
+#endif
 	if (show) {
 		addToolBar(_fileToolBar);
 		addToolBar(_showToolBar);
@@ -1398,7 +1448,7 @@ void GUI::showGraphGrids(bool show)
 
 void GUI::clearMapCache()
 {
-	_currentMap->clearCache();
+	_map->clearCache();
 	_pathView->redraw();
 }
 
@@ -1423,7 +1473,8 @@ void GUI::updateStatusBarInfo()
 			_timeLabel->setToolTip(Format::timeSpan(time()));
 		} else {
 			_timeLabel->setText(Format::timeSpan(time()));
-			_timeLabel->setToolTip(Format::timeSpan(movingTime()));
+			_timeLabel->setToolTip(Format::timeSpan(movingTime())
+			  + "<sub>M</sub>");
 		}
 	} else {
 		_timeLabel->clear();
@@ -1449,17 +1500,16 @@ void GUI::updateWindowTitle()
 
 void GUI::mapChanged(int index)
 {
-	_currentMap = _maps.at(index);
-
-	if (_showMapAction->isChecked())
-		_pathView->setMap(_currentMap);
+	_map = _maps.at(index);
+	_pathView->setMap(_map);
 }
 
 void GUI::nextMap()
 {
 	if (_maps.count() < 2)
 		return;
-	int next = (_maps.indexOf(_currentMap) + 1) % _maps.count();
+
+	int next = (_maps.indexOf(_map) + 1) % _maps.count();
 	_mapActions.at(next)->setChecked(true);
 	mapChanged(next);
 }
@@ -1468,7 +1518,8 @@ void GUI::prevMap()
 {
 	if (_maps.count() < 2)
 		return;
-	int prev = (_maps.indexOf(_currentMap) + _maps.count() - 1) % _maps.count();
+
+	int prev = (_maps.indexOf(_map) + _maps.count() - 1) % _maps.count();
 	_mapActions.at(prev)->setChecked(true);
 	mapChanged(prev);
 }
@@ -1724,8 +1775,7 @@ void GUI::writeSettings()
 	settings.endGroup();
 
 	settings.beginGroup(MAP_SETTINGS_GROUP);
-	if (_currentMap)
-		settings.setValue(CURRENT_MAP_SETTING, _currentMap->name());
+	settings.setValue(CURRENT_MAP_SETTING, _map->name());
 	if (_showMapAction->isChecked() != SHOW_MAP_DEFAULT)
 		settings.setValue(SHOW_MAP_SETTING, _showMapAction->isChecked());
 	settings.endGroup();
@@ -1879,11 +1929,9 @@ void GUI::readSettings()
 	if (_maps.count()) {
 		int index = mapIndex(settings.value(CURRENT_MAP_SETTING).toString());
 		_mapActions.at(index)->setChecked(true);
-		_currentMap = _maps.at(index);
-		if (_showMapAction->isChecked())
-			_pathView->setMap(_currentMap);
-	} else
-		_currentMap = 0;
+		_map = _maps.at(index);
+		_pathView->setMap(_map);
+	}
 	settings.endGroup();
 
 	settings.beginGroup(GRAPH_SETTINGS_GROUP);

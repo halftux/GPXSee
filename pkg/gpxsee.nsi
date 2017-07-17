@@ -5,7 +5,7 @@
 ; The name of the installer
 Name "GPXSee"
 ; Program version
-!define VERSION "3.9"
+!define VERSION "4.1"
 
 ; The file to write
 OutFile "GPXSee-${VERSION}.exe"
@@ -15,6 +15,14 @@ RequestExecutionLevel admin
 
 ; The default installation directory
 InstallDir "$PROGRAMFILES\GPXSee"
+
+; Installer executable info
+VIProductVersion "${VERSION}.0.0"
+VIAddVersionKey "ProductVersion" ${VERSION}
+VIAddVersionKey "FileVersion" "${VERSION}.0.0"
+VIAddVersionKey "ProductName" "GPXSee"
+VIAddVersionKey "LegalCopyright" "GPXSee project"
+VIAddVersionKey "FileDescription" "GPXSee installer"
 
 ; Registry key to check for directory (so if you install again, it will 
 ; overwrite the old one automatically)
@@ -163,6 +171,7 @@ Section "MSVC runtime" SEC_MSVC
   SetOutPath $TEMP
   File "VC_redist.x86.exe"
   ExecWait '"$TEMP/VC_redist.x86.exe" /install /quiet /norestart'
+  SetOutPath $INSTDIR
 
   done:
 SectionEnd
