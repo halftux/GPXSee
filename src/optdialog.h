@@ -18,10 +18,20 @@ struct Options {
 	int graphWidth;
 	bool pathAntiAliasing;
 	bool graphAntiAliasing;
+	// Data
+	int elevationFilter;
+	int speedFilter;
+	int heartRateFilter;
+	int cadenceFilter;
+	int powerFilter;
+	bool outlierEliminate;
+	qreal pauseSpeed;
+	int pauseInterval;
 	// POI
 	int poiRadius;
 	// System
 	bool useOpenGL;
+	int pixmapCache;
 	// Print/Export
 	bool printName;
 	bool printDate;

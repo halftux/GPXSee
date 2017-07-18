@@ -26,10 +26,9 @@ public:
 	void setMap(Map *map);
 
 	void setColor(const QColor &color);
-	void setWidth(int width);
+	void setWidth(qreal width);
 	void setStyle(Qt::PenStyle style);
-
-	void showMarker(bool show) {_marker->setVisible(show);}
+	void setDigitalZoom(int zoom);
 
 public slots:
 	void moveMarker(qreal distance);
@@ -50,9 +49,10 @@ private:
 	void hoverLeaveEvent(QGraphicsSceneHoverEvent *event);
 
 	Map *_map;
-	qreal _md;
+	qreal _markerDistance;
+	int _digitalZoom;
 
-	int _width;
+	qreal _width;
 	QPen _pen;
 	QPainterPath _shape;
 	QPainterPath _painterPath;

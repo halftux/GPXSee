@@ -1,37 +1,28 @@
 #include <QGraphicsView>
 #include <QGraphicsScene>
 #include <QWheelEvent>
-#include <QSysInfo>
+#include <QApplication>
+#include <QPixmapCache>
 #include "opengl.h"
 #include "misc.h"
 #include "poi.h"
 #include "data.h"
 #include "map.h"
-#include "emptymap.h"
 #include "trackitem.h"
 #include "routeitem.h"
 #include "waypointitem.h"
 #include "scaleitem.h"
+#include "keys.h"
 #include "pathview.h"
 
 
-#define MARGIN        10.0
-#define SCALE_OFFSET  7
-
-static void unite(QRectF &rect, const QPointF &p)
-{
-	if (p.x() < rect.left())
-		rect.setLeft(p.x());
-	if (p.x() > rect.right())
-		rect.setRight(p.x());
-	if (p.y() > rect.bottom())
-		rect.setBottom(p.y());
-	if (p.y() < rect.top())
-		rect.setTop(p.y());
-}
+#define MAX_DIGITAL_ZOOM 1
+#define MIN_DIGITAL_ZOOM -3
+#define MARGIN           10.0
+#define SCALE_OFFSET     7
 
 PathView::PathView(Map *map, POI *poi, QWidget *parent)
-	: QGraphicsView(parent)
+: QGraphicsView(parent)
 {
 	Q_ASSERT(map != 0);
 	Q_ASSERT(poi != 0);
@@ -71,6 +62,7 @@ PathView::PathView(Map *map, POI *poi, QWidget *parent)
 	_routeStyle = Qt::DashLine;
 
 	_plot = false;
+	_digitalZoom = 0;
 
 	_scene->setSceneRect(_map->bounds());
 	_res = _map->resolution(_scene->sceneRect().center());
@@ -95,7 +87,9 @@ PathItem *PathView::addTrack(const Track &track)
 	ti->setColor(_palette.nextColor());
 	ti->setWidth(_trackWidth);
 	ti->setStyle(_trackStyle);
+	ti->setUnits(_units);
 	ti->setVisible(_showTracks);
+	ti->setDigitalZoom(_digitalZoom);
 	_scene->addItem(ti);
 
 	addPOI(_poi->points(ti->path()));
@@ -116,9 +110,11 @@ PathItem *PathView::addRoute(const Route &route)
 	ri->setColor(_palette.nextColor());
 	ri->setWidth(_routeWidth);
 	ri->setStyle(_routeStyle);
+	ri->setUnits(_units);
 	ri->setVisible(_showRoutes);
 	ri->showWaypoints(_showRouteWaypoints);
 	ri->showWaypointLabels(_showWaypointLabels);
+	ri->setDigitalZoom(_digitalZoom);
 	_scene->addItem(ri);
 
 	addPOI(_poi->points(ri->path()));
@@ -133,11 +129,12 @@ void PathView::addWaypoints(const QList<Waypoint> &waypoints)
 
 		WaypointItem *wi = new WaypointItem(w, _map);
 		_waypoints.append(wi);
-		Coordinates c = wi->waypoint().coordinates();
-		updateWaypointsBoundingRect(QPointF(c.lon(), c.lat()));
+		updateWaypointsBoundingRect(wi->waypoint().coordinates());
 		wi->setZValue(1);
 		wi->showLabel(_showWaypointLabels);
+		wi->setUnits(_units);
 		wi->setVisible(_showWaypoints);
+		wi->setDigitalZoom(_digitalZoom);
 		_scene->addItem(wi);
 	}
 
@@ -174,43 +171,31 @@ QList<PathItem *> PathView::loadData(const Data &data)
 	return paths;
 }
 
-void PathView::updateWaypointsBoundingRect(const QPointF &wp)
+void PathView::updateWaypointsBoundingRect(const Coordinates &wp)
 {
-	if (_wr.isNull()) {
-		if (_wp.isNull())
-			_wp = wp;
-		else {
-			_wr = QRectF(_wp, wp).normalized();
-			_wp = QPointF();
-		}
-	} else
-		unite(_wr, wp);
+	if (_wr.isNull())
+		_wr = RectC(wp, wp);
+	else
+		_wr.unite(wp);
 }
 
 qreal PathView::mapScale() const
 {
-	QRectF br = _tr | _rr | _wr;
-	if (!br.isNull() && !_wp.isNull())
-		unite(br, _wp);
+	RectC br = _tr | _rr | _wr;
 
 	return _map->zoomFit(viewport()->size() - QSize(MARGIN/2, MARGIN/2), br);
 }
 
 QPointF PathView::contentCenter() const
 {
-	QRectF br = _tr | _rr | _wr;
-	if (!br.isNull() && !_wp.isNull())
-		unite(br, _wp);
+	RectC br = _tr | _rr | _wr;
 
-	if (br.isNull())
-		return _map->ll2xy(_wp);
-	else
-		return _map->ll2xy(br.center());
+	return _map->ll2xy(br.center());
 }
 
 void PathView::updatePOIVisibility()
 {
-	QHash<Waypoint, WaypointItem*>::const_iterator it, jt;
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it, jt;
 
 	if (!_showPOI)
 		return;
@@ -241,7 +226,7 @@ void PathView::rescale()
 	for (int i = 0; i < _waypoints.size(); i++)
 		_waypoints.at(i)->setMap(_map);
 
-	QHash<Waypoint, WaypointItem*>::const_iterator it;
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
 	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
 		it.value()->setMap(_map);
 
@@ -261,6 +246,10 @@ void PathView::setPalette(const Palette &palette)
 
 void PathView::setMap(Map *map)
 {
+	QPointF pos = mapToScene(viewport()->rect().center());
+	Coordinates center = _map->xy2ll(pos);
+	qreal resolution = _map->resolution(pos);
+
 	_map->unload();
 	disconnect(_map, SIGNAL(loaded()), this, SLOT(redraw()));
 
@@ -268,7 +257,9 @@ void PathView::setMap(Map *map)
 	_map->load();
 	connect(_map, SIGNAL(loaded()), this, SLOT(redraw()));
 
-	mapScale();
+	resetDigitalZoom();
+
+	_map->zoomFit(resolution, center);
 	_scene->setSceneRect(_map->bounds());
 
 	for (int i = 0; i < _tracks.size(); i++)
@@ -278,13 +269,19 @@ void PathView::setMap(Map *map)
 	for (int i = 0; i < _waypoints.size(); i++)
 		_waypoints.at(i)->setMap(map);
 
-	QPointF center = contentCenter();
-	centerOn(center);
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setMap(_map);
+	updatePOIVisibility();
 
-	_res = _map->resolution(center);
+	pos = _map->ll2xy(center);
+	centerOn(pos);
+
+	_res = _map->resolution(pos);
 	_mapScale->setResolution(_res);
 
 	resetCachedContent();
+	QPixmapCache::clear();
 }
 
 void PathView::setPOI(POI *poi)
@@ -299,7 +296,7 @@ void PathView::setPOI(POI *poi)
 
 void PathView::updatePOI()
 {
-	QHash<Waypoint, WaypointItem*>::const_iterator it;
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
 
 	for (it = _pois.constBegin(); it != _pois.constEnd(); it++) {
 		_scene->removeItem(it.value());
@@ -321,16 +318,17 @@ void PathView::addPOI(const QVector<Waypoint> &waypoints)
 	for (int i = 0; i < waypoints.size(); i++) {
 		const Waypoint &w = waypoints.at(i);
 
-		if (_pois.contains(w))
+		if (_pois.contains(SearchPointer<Waypoint>(&w)))
 			continue;
 
 		WaypointItem *pi = new WaypointItem(w, _map);
 		pi->setZValue(1);
 		pi->showLabel(_showPOILabels);
 		pi->setVisible(_showPOI);
+		pi->setDigitalZoom(_digitalZoom);
 		_scene->addItem(pi);
 
-		_pois.insert(w, pi);
+		_pois.insert(SearchPointer<Waypoint>(&(pi->waypoint())), pi);
 	}
 }
 
@@ -347,7 +345,7 @@ void PathView::setUnits(enum Units units)
 	for (int i = 0; i < _waypoints.size(); i++)
 		_waypoints.at(i)->setUnits(units);
 
-	QHash<Waypoint, WaypointItem*>::const_iterator it;
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
 	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
 		it.value()->setUnits(units);
 }
@@ -357,22 +355,79 @@ void PathView::redraw()
 	resetCachedContent();
 }
 
-void PathView::zoom(const QPoint &pos, const Coordinates &c)
+void PathView::resetDigitalZoom()
 {
-	QPoint offset = pos - viewport()->rect().center();
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
 
-	rescale();
+	_digitalZoom = 0;
+	resetTransform();
 
-	QPointF center = _map->ll2xy(c) - offset;
-	centerOn(center);
+	for (int i = 0; i < _tracks.size(); i++)
+		_tracks.at(i)->setDigitalZoom(0);
+	for (int i = 0; i < _routes.size(); i++)
+		_routes.at(i)->setDigitalZoom(0);
+	for (int i = 0; i < _waypoints.size(); i++)
+		_waypoints.at(i)->setDigitalZoom(0);
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setDigitalZoom(0);
 
-	_res = _map->resolution(center);
-	_mapScale->setResolution(_res);
+	_mapScale->setDigitalZoom(0);
+}
+
+void PathView::digitalZoom(int zoom)
+{
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+
+	_digitalZoom += zoom;
+	scale(pow(2, zoom), pow(2, zoom));
+
+	for (int i = 0; i < _tracks.size(); i++)
+		_tracks.at(i)->setDigitalZoom(_digitalZoom);
+	for (int i = 0; i < _routes.size(); i++)
+		_routes.at(i)->setDigitalZoom(_digitalZoom);
+	for (int i = 0; i < _waypoints.size(); i++)
+		_waypoints.at(i)->setDigitalZoom(_digitalZoom);
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setDigitalZoom(_digitalZoom);
+
+	_mapScale->setDigitalZoom(_digitalZoom);
+}
+
+void PathView::zoom(int zoom, const QPoint &pos, const Coordinates &c)
+{
+	bool shift = QApplication::keyboardModifiers() & Qt::ShiftModifier;
+
+	if (_digitalZoom) {
+		if (((_digitalZoom > 0 && zoom > 0) && (!shift || _digitalZoom
+		  >= MAX_DIGITAL_ZOOM)) || ((_digitalZoom < 0 && zoom < 0) && (!shift
+		  || _digitalZoom <= MIN_DIGITAL_ZOOM)))
+			return;
+
+		digitalZoom(zoom);
+	} else {
+		qreal os, ns;
+		os = _map->zoom();
+		ns = (zoom > 0) ? _map->zoomIn() : _map->zoomOut();
+
+		if (ns != os) {
+			QPoint offset = pos - viewport()->rect().center();
+
+			rescale();
+
+			QPointF center = _map->ll2xy(c) - offset;
+			centerOn(center);
+
+			_res = _map->resolution(center);
+			_mapScale->setResolution(_res);
+		} else {
+			if (shift)
+				digitalZoom(zoom);
+		}
+	}
 }
 
 void PathView::wheelEvent(QWheelEvent *event)
 {
-	qreal os, ns;
 	static int deg = 0;
 
 	deg += event->delta() / 8;
@@ -380,27 +435,17 @@ void PathView::wheelEvent(QWheelEvent *event)
 		return;
 	deg = 0;
 
-	os = _map->zoom();
 	Coordinates c = _map->xy2ll(mapToScene(event->pos()));
-
-	ns = (event->delta() > 0) ? _map->zoomIn() : _map->zoomOut();
-	if (ns != os)
-		zoom(event->pos(), c);
+	zoom((event->delta() > 0) ? 1 : -1, event->pos(), c);
 }
 
 void PathView::mouseDoubleClickEvent(QMouseEvent *event)
 {
-	qreal os, ns;
-
 	if (event->button() != Qt::LeftButton && event->button() != Qt::RightButton)
 		return;
 
-	os = _map->zoom();
 	Coordinates c = _map->xy2ll(mapToScene(event->pos()));
-
-	ns = (event->button() == Qt::LeftButton) ? _map->zoomIn() : _map->zoomOut();
-	if (ns != os)
-		zoom(event->pos(), c);
+	zoom((event->button() == Qt::LeftButton) ? 1 : -1, event->pos(), c);
 }
 #ifdef Q_WS_MAEMO_5
 void PathView::mousePressEvent(QMouseEvent *e)
@@ -413,14 +458,23 @@ void PathView::mousePressEvent(QMouseEvent *e)
 void PathView::zoom_maemo(QString direction)
 {
 	qreal os, ns;
+	int z;
 
 	os = _map->zoom();
 	QPoint pos = QRect(QPoint(), viewport()->size()).center();
 	Coordinates c = _map->xy2ll(mapToScene(pos));
-	if (direction=="in") ns = _map->zoomIn();
-	else ns = _map->zoomOut();
+	if (direction=="in")
+	{
+		ns = _map->zoomIn();
+		z = 1;
+	}
+	else
+	{
+		ns = _map->zoomOut();
+		z = -1;
+	}
 	if (ns != os)
-		zoom(pos, c);
+		zoom(z, pos, c);
 }
 void PathView::setRescale(bool rescale)
 {
@@ -431,30 +485,34 @@ void PathView::setRescale(bool rescale)
 
 void PathView::keyPressEvent(QKeyEvent *event)
 {
-	qreal os, ns;
+	int z;
 
-	os = _map->zoom();
-	QPoint pos = QRect(QPoint(), viewport()->size()).center();
+	QPoint pos = viewport()->rect().center();
 	Coordinates c = _map->xy2ll(mapToScene(pos));
 
 #ifdef Q_WS_MAEMO_5
 	if (event->key()==Qt::Key_F7)
-		ns = _map->zoomIn();
+		z = 1;
 	else if (event->key()==Qt::Key_F8)
-		ns = _map->zoomOut();
+		z = -1;
+	else if (_digitalZoom && event->key() == Qt::Key_Escape) {
+		resetDigitalZoom();
+		return;}
 #else
-	if (event->matches(QKeySequence::ZoomIn))
-		ns = _map->zoomIn();
-	else if (event->matches(QKeySequence::ZoomOut))
-		ns = _map->zoomOut();
+	if (event->matches(ZOOM_IN))
+		z = 1;
+	else if (event->matches(ZOOM_OUT))
+		z = -1;
+	else if (_digitalZoom && event->key() == Qt::Key_Escape) {
+		resetDigitalZoom();
+		return;}
 #endif
 	else {
 		QWidget::keyPressEvent(event);
 		return;
 	}
 
-	if (ns != os)
-		zoom(pos, c);
+	zoom(z, pos, c);
 }
 
 void PathView::plot(QPainter *painter, const QRectF &target)
@@ -505,8 +563,13 @@ void PathView::clear()
 	_scene->clear();
 	_palette.reset();
 
-	_tr = QRectF(); _rr = QRectF(); _wr = QRectF();
-	_wp = QPointF();
+	_tr = RectC();
+	_rr = RectC();
+	_wr = RectC();
+
+	resetDigitalZoom();
+	resetCachedContent();
+	QPixmapCache::clear();
 }
 
 void PathView::showTracks(bool show)
@@ -562,7 +625,7 @@ void PathView::showPOI(bool show)
 {
 	_showPOI = show;
 
-	QHash<Waypoint, WaypointItem*>::const_iterator it;
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
 	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
 		it.value()->setVisible(show);
 
@@ -573,7 +636,7 @@ void PathView::showPOILabels(bool show)
 {
 	_showPOILabels = show;
 
-	QHash<Waypoint, WaypointItem*>::const_iterator it;
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
 	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
 		it.value()->showLabel(show);
 

@@ -1,5 +1,5 @@
 TARGET = gpxsee
-VERSION = 4.1
+VERSION = 4.9
 
 QT += core \
     gui \
@@ -25,7 +25,6 @@ HEADERS += src/config.h \
     src/filebrowser.h \
     src/map.h \
     src/onlinemap.h \
-    src/maplist.h \
     src/downloader.h \
     src/units.h \
     src/scaleitem.h \
@@ -83,7 +82,6 @@ HEADERS += src/config.h \
     src/timetype.h \
     src/emptymap.h \
     src/offlinemap.h \
-    src/mapdir.h \
     src/matrix.h \
     src/tar.h \
     src/atlas.h \
@@ -93,7 +91,14 @@ HEADERS += src/config.h \
     src/latlon.h \
     src/utm.h \
     src/lambertconic.h \
-    src/ellipsoid.h
+    src/ellipsoid.h \
+    src/ozf.h \
+    src/datum.h \
+    src/maplist.h \
+    src/albersequal.h \
+    src/oddspinbox.h \
+    src/rectc.h \
+    src/searchpointer.h
 
 SOURCES += src/main.cpp \
     src/gui.cpp \
@@ -107,7 +112,6 @@ SOURCES += src/main.cpp \
     src/sliderinfoitem.cpp \
     src/filebrowser.cpp \
     src/onlinemap.cpp \
-    src/maplist.cpp \
     src/downloader.cpp \
     src/scaleitem.cpp \
     src/track.cpp \
@@ -151,7 +155,6 @@ SOURCES += src/main.cpp \
     src/stylecombobox.cpp \
     src/emptymap.cpp \
     src/offlinemap.cpp \
-    src/mapdir.cpp \
     src/matrix.cpp \
     src/tar.cpp \
     src/atlas.cpp \
@@ -159,7 +162,13 @@ SOURCES += src/main.cpp \
     src/transversemercator.cpp \
     src/utm.cpp \
     src/lambertconic.cpp \
-    src/ellipsoid.cpp
+    src/ellipsoid.cpp \
+    src/ozf.cpp \
+    src/datum.cpp \
+    src/maplist.cpp \
+    src/albersequal.cpp \
+    src/oddspinbox.cpp \
+    src/rectc.cpp
 
 RESOURCES += gpxsee.qrc
 TRANSLATIONS = lang/gpxsee_cs.ts \
@@ -178,6 +187,7 @@ FORMS += \
     src/expdialog.ui \
     src/optdialog.ui
 }
+
 macx {
     ICON = icons/gpxsee.icns
     QMAKE_INFO_PLIST = Info.plist
@@ -187,7 +197,9 @@ macx {
         icons/fit.icns \
         icons/igc.icns \
         icons/nmea.icns \
-        pkg/maps.txt
+        pkg/maps.txt \
+        pkg/ellipsoids.csv \
+        pkg/datums.csv
     APP_RESOURCES.path = Contents/Resources
     QMAKE_BUNDLE_DATA += APP_RESOURCES
 }

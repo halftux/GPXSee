@@ -16,12 +16,13 @@ public:
 	qreal resolution(const QPointF &p) const;
 
 	qreal zoom() const {return _scale;}
-	qreal zoomFit(const QSize &size, const QRectF &br);
+	qreal zoomFit(const QSize &size, const RectC &br);
+	qreal zoomFit(qreal resolution, const Coordinates &c);
 	qreal zoomIn();
 	qreal zoomOut();
 
-	QPointF ll2xy(const Coordinates &c) const;
-	Coordinates xy2ll(const QPointF &p) const;
+	QPointF ll2xy(const Coordinates &c);
+	Coordinates xy2ll(const QPointF &p);
 
 	void draw(QPainter *painter, const QRectF &rect);
 

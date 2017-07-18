@@ -7,6 +7,7 @@
 
 class QPainter;
 class Coordinates;
+class RectC;
 
 class Map : public QObject
 {
@@ -21,12 +22,13 @@ public:
 	virtual qreal resolution(const QPointF &p) const = 0;
 
 	virtual qreal zoom() const = 0;
-	virtual qreal zoomFit(const QSize &size, const QRectF &br) = 0;
+	virtual qreal zoomFit(const QSize &size, const RectC &br) = 0;
+	virtual qreal zoomFit(qreal resolution, const Coordinates &c) = 0;
 	virtual qreal zoomIn() = 0;
 	virtual qreal zoomOut() = 0;
 
-	virtual QPointF ll2xy(const Coordinates &c) const = 0;
-	virtual Coordinates xy2ll(const QPointF &p) const = 0;
+	virtual QPointF ll2xy(const Coordinates &c) = 0;
+	virtual Coordinates xy2ll(const QPointF &p) = 0;
 
 	virtual void draw(QPainter *painter, const QRectF &rect) = 0;
 

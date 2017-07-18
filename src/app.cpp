@@ -3,7 +3,7 @@
 #include <QLocale>
 #include <QFileOpenEvent>
 #include <QNetworkProxyFactory>
-#include <QPixmapCache>
+#include <QLibraryInfo>
 #include "opengl.h"
 #include "gui.h"
 #include "onlinemap.h"
@@ -14,17 +14,23 @@
 App::App(int &argc, char **argv) : QApplication(argc, argv),
   _argc(argc), _argv(argv)
 {
-	QTranslator *translator = new QTranslator(this);
-
+#ifndef Q_WS_MAEMO_5
+	QTranslator *gpxsee = new QTranslator(this);
 	QString locale = QLocale::system().name();
-	translator->load(QString(":/lang/gpxsee_") + locale);
-	installTranslator(translator);
+	gpxsee->load(QString(":/lang/gpxsee_") + locale);
+	installTranslator(gpxsee);
+
+	QTranslator *qt = new QTranslator(this);
+	qt->load(QLocale::system(), "qt", "_", QLibraryInfo::location(
+	  QLibraryInfo::TranslationsPath));
+	installTranslator(qt);
+#endif
+
 #ifdef Q_OS_MAC
 	setAttribute(Qt::AA_DontShowIconsInMenus);
 #endif // Q_OS_MAC
 
 	QNetworkProxyFactory::setUseSystemConfiguration(true);
-	QPixmapCache::setCacheLimit(65536);
 	OnlineMap::setDownloader(new Downloader(this));
 	OPENGL_SET_SAMPLES(4);
 

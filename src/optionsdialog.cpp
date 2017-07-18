@@ -9,11 +9,13 @@
 #include <QGroupBox>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QLabel>
 #include <QSysInfo>
 #include "config.h"
 #include "icons.h"
 #include "colorbox.h"
 #include "stylecombobox.h"
+#include "oddspinbox.h"
 #include "optionsdialog.h"
 
 #define MENU_MARGIN 20
@@ -83,11 +85,12 @@ QWidget *OptionsDialog::createAppearancePage()
 	pathTabLayout->addWidget(l1);
 	pathTabLayout->addLayout(routeLayout);
 	pathTabLayout->addWidget(l2);
-#else
+#else // Q_OS_MAC
 	pathTabLayout->addWidget(trackBox);
 	pathTabLayout->addWidget(routeBox);
-#endif
+#endif // Q_OS_MAC
 	pathTabLayout->addLayout(pathAALayout);
+	pathTabLayout->addStretch();
 	pathTab->setLayout(pathTabLayout);
 
 	_graphWidth = new QSpinBox();
@@ -115,6 +118,98 @@ QWidget *OptionsDialog::createAppearancePage()
 	appearancePage->addTab(graphTab, tr("Graphs"));
 
 	return appearancePage;
+}
+
+QWidget *OptionsDialog::createDataPage()
+{
+	QString filterToolTip = tr("Moving average window size");
+
+	_elevationFilter = new OddSpinBox();
+	_elevationFilter->setValue(_options->elevationFilter);
+	_elevationFilter->setToolTip(filterToolTip);
+	_speedFilter = new OddSpinBox();
+	_speedFilter->setValue(_options->speedFilter);
+	_speedFilter->setToolTip(filterToolTip);
+	_heartRateFilter = new OddSpinBox();
+	_heartRateFilter->setValue(_options->heartRateFilter);
+	_heartRateFilter->setToolTip(filterToolTip);
+	_cadenceFilter = new OddSpinBox();
+	_cadenceFilter->setValue(_options->cadenceFilter);
+	_cadenceFilter->setToolTip(filterToolTip);
+	_powerFilter = new OddSpinBox();
+	_powerFilter->setValue(_options->powerFilter);
+	_powerFilter->setToolTip(filterToolTip);
+
+	QFormLayout *smoothLayout = new QFormLayout();
+	smoothLayout->addRow(tr("Elevation:"), _elevationFilter);
+	smoothLayout->addRow(tr("Speed:"), _speedFilter);
+	smoothLayout->addRow(tr("Heart rate:"), _heartRateFilter);
+	smoothLayout->addRow(tr("Cadence:"), _cadenceFilter);
+	smoothLayout->addRow(tr("Power:"), _powerFilter);
+#ifndef Q_OS_MAC
+	QGroupBox *smoothBox = new QGroupBox(tr("Smoothing"));
+	smoothBox->setLayout(smoothLayout);
+#endif // Q_OS_MAC
+
+	_outlierEliminate = new QCheckBox(tr("Eliminate GPS outliers"));
+	_outlierEliminate->setChecked(_options->outlierEliminate);
+
+	QFormLayout *outlierLayout = new QFormLayout();
+	outlierLayout->addWidget(_outlierEliminate);
+#ifndef Q_OS_MAC
+	QGroupBox *outlierBox = new QGroupBox(tr("Outlier elimination"));
+	outlierBox->setLayout(outlierLayout);
+#endif // Q_OS_MAC
+
+	QWidget *filterTab = new QWidget();
+	QVBoxLayout *filterTabLayout = new QVBoxLayout();
+#ifdef Q_OS_MAC
+	QLabel *label = new QLabel(tr("Smoothing:"));
+	QFrame *line = new QFrame();
+	line->setFrameShape(QFrame::HLine);
+	line->setFrameShadow(QFrame::Sunken);
+
+	filterTabLayout->addWidget(label);
+	filterTabLayout->addLayout(smoothLayout);
+	filterTabLayout->addWidget(line);
+	filterTabLayout->addLayout(outlierLayout);
+#else // Q_OS_MAC
+	filterTabLayout->addWidget(smoothBox);
+	filterTabLayout->addWidget(outlierBox);
+#endif // Q_OS_MAC
+	filterTabLayout->addStretch();
+	filterTab->setLayout(filterTabLayout);
+
+
+	_pauseSpeed = new QDoubleSpinBox();
+	_pauseSpeed->setDecimals(1);
+	_pauseSpeed->setSingleStep(0.1);
+	_pauseSpeed->setMinimum(0.1);
+	if (_options->units == Imperial) {
+		_pauseSpeed->setValue(_options->pauseSpeed * MS2MIH);
+		_pauseSpeed->setSuffix(UNIT_SPACE + tr("mi/h"));
+	} else {
+		_pauseSpeed->setValue(_options->pauseSpeed * MS2KMH);
+		_pauseSpeed->setSuffix(UNIT_SPACE + tr("km/h"));
+	}
+	_pauseInterval = new QSpinBox();
+	_pauseInterval->setMinimum(1);
+	_pauseInterval->setSuffix(UNIT_SPACE + tr("s"));
+	_pauseInterval->setValue(_options->pauseInterval);
+
+	QFormLayout *pauseLayout = new QFormLayout();
+	pauseLayout->addRow(tr("Minimal speed:"), _pauseSpeed);
+	pauseLayout->addRow(tr("Minimal duration:"), _pauseInterval);
+
+	QWidget *pauseTab = new QWidget();
+	pauseTab->setLayout(pauseLayout);
+
+
+	QTabWidget *filterPage = new QTabWidget();
+	filterPage->addTab(filterTab, tr("Filtering"));
+	filterPage->addTab(pauseTab, tr("Pause detection"));
+
+	return filterPage;
 }
 
 QWidget *OptionsDialog::createPOIPage()
@@ -196,11 +291,24 @@ QWidget *OptionsDialog::createSystemPage()
 #endif // Q_OS_WIN32
 	_useOpenGL->setChecked(_options->useOpenGL);
 
-	QFormLayout *systemLayout = new QFormLayout();
-	systemLayout->addWidget(_useOpenGL);
+	_pixmapCache = new QSpinBox();
+	_pixmapCache->setMinimum(16);
+	_pixmapCache->setMaximum(1024);
+	_pixmapCache->setSuffix(UNIT_SPACE + tr("MB"));
+	_pixmapCache->setValue(_options->pixmapCache);
+
+	QFormLayout *cacheLayout = new QFormLayout();
+	cacheLayout->addRow(tr("Image cache size:"), _pixmapCache);
+
+	QFormLayout *openGLLayout = new QFormLayout();
+	openGLLayout->addWidget(_useOpenGL);
 
 	QWidget *systemTab = new QWidget();
-	systemTab->setLayout(systemLayout);
+	QVBoxLayout *systemTabLayout = new QVBoxLayout();
+	systemTabLayout->addLayout(cacheLayout);
+	systemTabLayout->addLayout(openGLLayout);
+	systemTabLayout->addStretch();
+	systemTab->setLayout(systemTabLayout);
 
 	QTabWidget *systemPage = new QTabWidget();
 	systemPage->addTab(systemTab, tr("System"));
@@ -213,6 +321,7 @@ OptionsDialog::OptionsDialog(Options *options, QWidget *parent)
 {
 	QStackedWidget *pages = new QStackedWidget();
 	pages->addWidget(createAppearancePage());
+	pages->addWidget(createDataPage());
 	pages->addWidget(createPOIPage());
 	pages->addWidget(createExportPage());
 	pages->addWidget(createSystemPage());
@@ -221,6 +330,7 @@ OptionsDialog::OptionsDialog(Options *options, QWidget *parent)
 	menu->setIconSize(QSize(MENU_ICON_SIZE, MENU_ICON_SIZE));
 	new QListWidgetItem(QIcon(QPixmap(APPEARANCE_ICON)), tr("Appearance"),
 	  menu);
+	new QListWidgetItem(QIcon(QPixmap(DATA_ICON)), tr("Data"), menu);
 	new QListWidgetItem(QIcon(QPixmap(POI_ICON)), tr("POI"), menu);
 	new QListWidgetItem(QIcon(QPixmap(PRINT_EXPORT_ICON)), tr("Print & Export"),
 	  menu);
@@ -269,12 +379,21 @@ void OptionsDialog::accept()
 	_options->graphWidth = _graphWidth->value();
 	_options->graphAntiAliasing = _graphAA->isChecked();
 
-	if (_options->units == Imperial)
-		_options->poiRadius = _poiRadius->value() * MIINM;
-	else
-		_options->poiRadius = _poiRadius->value() * KMINM;
+	_options->elevationFilter = _elevationFilter->value();
+	_options->speedFilter = _speedFilter->value();
+	_options->heartRateFilter = _heartRateFilter->value();
+	_options->cadenceFilter = _cadenceFilter->value();
+	_options->powerFilter = _powerFilter->value();
+	_options->outlierEliminate = _outlierEliminate->isChecked();
+	_options->pauseSpeed = (_options->units == Imperial)
+		? _pauseSpeed->value() / MS2MIH : _pauseSpeed->value() / MS2KMH;
+	_options->pauseInterval = _pauseInterval->value();
+
+	_options->poiRadius = (_options->units == Imperial)
+		? _poiRadius->value() * MIINM :  _poiRadius->value() * KMINM;
 
 	_options->useOpenGL = _useOpenGL->isChecked();
+	_options->pixmapCache = _pixmapCache->value();
 
 	_options->printName = _name->isChecked();
 	_options->printDate = _date->isChecked();

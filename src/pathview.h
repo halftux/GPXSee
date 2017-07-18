@@ -8,6 +8,8 @@
 #include "units.h"
 #include "palette.h"
 #include "waypoint.h"
+#include "rectc.h"
+#include "searchpointer.h"
 
 class Data;
 class POI;
@@ -79,13 +81,16 @@ private:
 	qreal mapScale() const;
 	QPointF contentCenter() const;
 	void rescale();
-	void zoom(const QPoint &pos, const Coordinates &c);
+	void zoom(int zoom, const QPoint &pos, const Coordinates &c);
+	void digitalZoom(int zoom);
+	void resetDigitalZoom();
 	void updatePOIVisibility();
 	void updateWaypointsBoundingRect(const QPointF &wp);
 #ifdef Q_WS_MAEMO_5
 	void mousePressEvent(QMouseEvent *e);
 	bool _rescale;
 #endif
+	void updateWaypointsBoundingRect(const Coordinates &wp);
 
 	void mouseDoubleClickEvent(QMouseEvent *event);
 	void wheelEvent(QWheelEvent *event);
@@ -100,10 +105,9 @@ private:
 	QList<TrackItem*> _tracks;
 	QList<RouteItem*> _routes;
 	QList<WaypointItem*> _waypoints;
-	QHash<Waypoint, WaypointItem*> _pois;
+	QHash<SearchPointer<Waypoint>, WaypointItem*> _pois;
 
-	QRectF _tr, _rr, _wr;
-	QPointF _wp;
+	RectC _tr, _rr, _wr;
 	qreal _res;
 
 	Map *_map;
@@ -125,6 +129,7 @@ private:
 	Qt::PenStyle _trackStyle;
 	Qt::PenStyle _routeStyle;
 
+	int _digitalZoom;
 	bool _plot;
 };
 

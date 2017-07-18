@@ -18,13 +18,14 @@ public:
 	QRectF bounds() const;
 	qreal resolution(const QPointF &p) const;
 
-	qreal zoom() const {return _scale;}
-	qreal zoomFit(const QSize &size, const QRectF &br);
+	qreal zoom() const {return _zoom;}
+	qreal zoomFit(const QSize &size, const RectC &br);
+	qreal zoomFit(qreal resolution, const Coordinates &c);
 	qreal zoomIn();
 	qreal zoomOut();
 
-	QPointF ll2xy(const Coordinates &c) const;
-	Coordinates xy2ll(const QPointF &p) const;
+	QPointF ll2xy(const Coordinates &c);
+	Coordinates xy2ll(const QPointF &p);
 
 	void draw(QPainter *painter, const QRectF &rect);
 
@@ -45,7 +46,7 @@ private:
 	void loadTilesAsync(QList<Tile> &list);
 	void loadTilesSync(QList<Tile> &list);
 
-	qreal _scale;
+	int _zoom;
 	QString _name;
 	QString _url;
 	bool _block;

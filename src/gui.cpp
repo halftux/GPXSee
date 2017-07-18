@@ -21,14 +21,16 @@
 #include <QLocale>
 #include <QMimeData>
 #include <QUrl>
+#include <QPixmapCache>
 #include "config.h"
 #include "icons.h"
 #include "keys.h"
 #include "settings.h"
 #include "data.h"
+#include "ellipsoid.h"
+#include "datum.h"
 #include "map.h"
 #include "maplist.h"
-#include "mapdir.h"
 #include "emptymap.h"
 #include "elevationgraph.h"
 #include "speedgraph.h"
@@ -54,6 +56,7 @@
 
 GUI::GUI()
 {
+	loadDatums();
 	loadMaps();
 	loadPOIs();
 
@@ -245,23 +248,94 @@ void GUI::onProcessReady()
 	this->setAttribute(Qt::WA_Maemo5ShowProgressIndicator, false);
 }
 #endif
+void GUI::loadDatums()
+{
+	QString ef, df;
+	bool ok = false;
+
+	if (QFile::exists(USER_ELLIPSOID_FILE))
+		ef = USER_ELLIPSOID_FILE;
+	else if (QFile::exists(GLOBAL_ELLIPSOID_FILE))
+		ef = GLOBAL_ELLIPSOID_FILE;
+	else
+		qWarning("No ellipsoids file found.");
+
+	if (QFile::exists(USER_DATUM_FILE))
+		df = USER_DATUM_FILE;
+	else if (QFile::exists(GLOBAL_DATUM_FILE))
+		df = GLOBAL_DATUM_FILE;
+	else
+		qWarning("No datums file found.");
+
+	if (!ef.isNull() && !df.isNull()) {
+		if (!Ellipsoid::loadList(ef)) {
+			if (Ellipsoid::errorLine())
+				qWarning("%s: parse error on line %d: %s", qPrintable(ef),
+				  Ellipsoid::errorLine(), qPrintable(Ellipsoid::errorString()));
+			else
+				qWarning("%s: %s", qPrintable(ef), qPrintable(
+				  Ellipsoid::errorString()));
+		} else {
+			if (!Datum::loadList(df)) {
+				if (Datum::errorLine())
+					qWarning("%s: parse error on line %d: %s", qPrintable(ef),
+					  Datum::errorLine(), qPrintable(Datum::errorString()));
+				else
+					qWarning("%s: %s", qPrintable(ef), qPrintable(
+					  Datum::errorString()));
+			} else
+				ok = true;
+		}
+	}
+
+	if (!ok)
+		qWarning("Maps based on a datum different from WGS84 won't work.");
+}
+
 void GUI::loadMaps()
 {
-	QList<Map*> online, offline;
+	_ml = new MapList(this);
+
+	QString offline, online;
 
 	if (QFile::exists(USER_MAP_FILE))
-		online = MapList::load(USER_MAP_FILE, this);
-	else
-		online = MapList::load(GLOBAL_MAP_FILE, this);
+		online = USER_MAP_FILE;
+	else if (QFile::exists(GLOBAL_MAP_FILE))
+		online = GLOBAL_MAP_FILE;
+
+	if (!online.isNull() && !_ml->loadList(online))
+		qWarning("%s: %s", qPrintable(online), qPrintable(_ml->errorString()));
+
 
 	if (QFile::exists(USER_MAP_DIR))
-		offline = MapDir::load(USER_MAP_DIR, this);
-	else
-		offline = MapDir::load(GLOBAL_MAP_DIR, this);
+		offline = USER_MAP_DIR;
+	else if (QFile::exists(GLOBAL_MAP_DIR))
+		offline = GLOBAL_MAP_DIR;
 
-	_maps = online + offline;
+	if (!offline.isNull()) {
+		QDir md(offline);
+		QFileInfoList ml = md.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+		QStringList filters;
+		filters << "*.map" << "*.tba" << "*.tar";
 
-	_map = _maps.isEmpty() ? new EmptyMap(this) : _maps.first();
+		for (int i = 0; i < ml.size(); i++) {
+			QDir dir(ml.at(i).absoluteFilePath());
+			QFileInfoList fl = dir.entryInfoList(filters, QDir::Files);
+
+			if (fl.isEmpty())
+				qWarning("%s: no map/atlas file found",
+				  qPrintable(ml.at(i).absoluteFilePath()));
+			else if (fl.size() > 1)
+				qWarning("%s: ambiguous directory content",
+				  qPrintable(ml.at(i).absoluteFilePath()));
+			else
+				if (!_ml->loadMap(fl.first().absoluteFilePath()))
+					qWarning("%s: %s", qPrintable(fl.first().absoluteFilePath()),
+					  qPrintable(_ml->errorString()));
+		}
+	}
+
+	_map = _ml->maps().isEmpty() ? new EmptyMap(this) : _ml->maps().first();
 }
 
 void GUI::loadPOIs()
@@ -290,33 +364,34 @@ void GUI::loadPOIs()
 
 void GUI::createMapActions()
 {
-	QActionGroup *ag = new QActionGroup(this);
-	ag->setExclusive(true);
+	_mapsSignalMapper = new QSignalMapper(this);
+	_mapsActionGroup = new QActionGroup(this);
+	_mapsActionGroup->setExclusive(true);
 
-	QSignalMapper *sm = new QSignalMapper(this);
-
-	for (int i = 0; i < _maps.count(); i++) {
-		QAction *a = new QAction(_maps.at(i)->name(), this);
+	for (int i = 0; i < _ml->maps().count(); i++) {
+		QAction *a = new QAction(_ml->maps().at(i)->name(), this);
 		a->setCheckable(true);
-		a->setActionGroup(ag);
+		a->setActionGroup(_mapsActionGroup);
 
-		sm->setMapping(a, i);
-		connect(a, SIGNAL(triggered()), sm, SLOT(map()));
+		_mapsSignalMapper->setMapping(a, i);
+		connect(a, SIGNAL(triggered()), _mapsSignalMapper, SLOT(map()));
 
 		_mapActions.append(a);
 	}
 
-	connect(sm, SIGNAL(mapped(int)), this, SLOT(mapChanged(int)));
+	connect(_mapsSignalMapper, SIGNAL(mapped(int)), this,
+	  SLOT(mapChanged(int)));
 }
 
 void GUI::createPOIFilesActions()
 {
-	_poiFilesSM = new QSignalMapper(this);
+	_poiFilesSignalMapper = new QSignalMapper(this);
 
 	for (int i = 0; i < _poi->files().count(); i++)
 		createPOIFileAction(i);
 
-	connect(_poiFilesSM, SIGNAL(mapped(int)), this, SLOT(poiFileChecked(int)));
+	connect(_poiFilesSignalMapper, SIGNAL(mapped(int)), this,
+	  SLOT(poiFileChecked(int)));
 }
 
 QAction *GUI::createPOIFileAction(int index)
@@ -325,8 +400,8 @@ QAction *GUI::createPOIFileAction(int index)
 	  this);
 	a->setCheckable(true);
 
-	_poiFilesSM->setMapping(a, index);
-	connect(a, SIGNAL(triggered()), _poiFilesSM, SLOT(map()));
+	_poiFilesSignalMapper->setMapping(a, index);
+	connect(a, SIGNAL(triggered()), _poiFilesSignalMapper, SLOT(map()));
 
 	_poiFilesActions.append(a);
 
@@ -354,6 +429,7 @@ void GUI::createActions()
 	// General actions
 	_exitAction = new QAction(QIcon(QPixmap(QUIT_ICON)), tr("Quit"), this);
 	_exitAction->setShortcut(QUIT_SHORTCUT);
+	_exitAction->setMenuRole(QAction::QuitRole);
 	connect(_exitAction, SIGNAL(triggered()), this, SLOT(close()));
 	addAction(_exitAction);
 
@@ -364,11 +440,12 @@ void GUI::createActions()
 	connect(_keysAction, SIGNAL(triggered()), this, SLOT(keys()));
 	_aboutAction = new QAction(QIcon(QPixmap(APP_ICON)),
 	  tr("About GPXSee"), this);
+	_aboutAction->setMenuRole(QAction::AboutRole);
 	connect(_aboutAction, SIGNAL(triggered()), this, SLOT(about()));
 
 	// File actions
 	_openFileAction = new QAction(QIcon(QPixmap(OPEN_FILE_ICON)),
-	  tr("Open"), this);
+	  tr("Open..."), this);
 	_openFileAction->setShortcut(OPEN_SHORTCUT);
 	connect(_openFileAction, SIGNAL(triggered()), this, SLOT(openFile()));
 	addAction(_openFileAction);
@@ -400,7 +477,7 @@ void GUI::createActions()
 
 	// POI actions
 	_openPOIAction = new QAction(QIcon(QPixmap(OPEN_FILE_ICON)),
-	  tr("Load POI file"), this);
+	  tr("Load POI file..."), this);
 	connect(_openPOIAction, SIGNAL(triggered()), this, SLOT(openPOIFile()));
 	_closePOIAction = new QAction(QIcon(QPixmap(CLOSE_FILE_ICON)),
 	  tr("Close POI files"), this);
@@ -430,23 +507,24 @@ void GUI::createActions()
 	connect(_showMapAction, SIGNAL(triggered(bool)), _pathView,
 	  SLOT(showMap(bool)));
 	addAction(_showMapAction);
+	_loadMapAction = new QAction(QIcon(QPixmap(OPEN_FILE_ICON)),
+	  tr("Load map..."), this);
+	connect(_loadMapAction, SIGNAL(triggered()), this, SLOT(loadMap()));
 	_clearMapCacheAction = new QAction(tr("Clear tile cache"), this);
 	connect(_clearMapCacheAction, SIGNAL(triggered()), this,
 	  SLOT(clearMapCache()));
-	if (_maps.empty()) {
+	createMapActions();
+	_nextMapAction = new QAction(tr("Next map"), this);
+	_nextMapAction->setShortcut(NEXT_MAP_SHORTCUT);
+	connect(_nextMapAction, SIGNAL(triggered()), this, SLOT(nextMap()));
+	addAction(_nextMapAction);
+	_prevMapAction = new QAction(tr("Next map"), this);
+	_prevMapAction->setShortcut(PREV_MAP_SHORTCUT);
+	connect(_prevMapAction, SIGNAL(triggered()), this, SLOT(prevMap()));
+	addAction(_prevMapAction);
+	if (_ml->maps().isEmpty()) {
 		_showMapAction->setEnabled(false);
 		_clearMapCacheAction->setEnabled(false);
-	} else {
-		createMapActions();
-
-		_nextMapAction = new QAction(tr("Next map"), this);
-		_nextMapAction->setShortcut(NEXT_MAP_SHORTCUT);
-		connect(_nextMapAction, SIGNAL(triggered()), this, SLOT(nextMap()));
-		addAction(_nextMapAction);
-		_prevMapAction = new QAction(tr("Next map"), this);
-		_prevMapAction->setShortcut(PREV_MAP_SHORTCUT);
-		connect(_prevMapAction, SIGNAL(triggered()), this, SLOT(prevMap()));
-		addAction(_prevMapAction);
 	}
 
 	// Data actions
@@ -559,6 +637,7 @@ void GUI::createActions()
 	  SLOT(showFullscreen(bool)));
 	addAction(_fullscreenAction);
 	_openOptionsAction = new QAction(tr("Options..."), this);
+	_openOptionsAction->setMenuRole(QAction::PreferencesRole);
 	connect(_openOptionsAction, SIGNAL(triggered()), this,
 	  SLOT(openOptions()));
 
@@ -637,6 +716,7 @@ void GUI::createMenus()
 	_stdMenu->addAction(_showToolbarsAction);
 	_stdMenu->addAction(_fullscreenAction);
 	_stdMenu->addAction(_dataSourcesAction);
+	_stdMenu->addAction(_loadMapAction);
 	_stdMenu->addAction(_keysAction);
 	_stdMenu->addAction(_aboutAction);
 	_stdMenu->addAction(_togglePoiMenu);
@@ -683,12 +763,13 @@ void GUI::createMenus()
 	fileMenu->addAction(_exitAction);
 #endif // Q_OS_MAC
 
-	QMenu *mapMenu = menuBar()->addMenu(tr("Map"));
-	mapMenu->addActions(_mapActions);
-	mapMenu->addSeparator();
-	mapMenu->addAction(_clearMapCacheAction);
-	mapMenu->addSeparator();
-	mapMenu->addAction(_showMapAction);
+	_mapMenu = menuBar()->addMenu(tr("Map"));
+	_mapMenu->addActions(_mapActions);
+	_mapsEnd = _mapMenu->addSeparator();
+	_mapMenu->addAction(_loadMapAction);
+	_mapMenu->addAction(_clearMapCacheAction);
+	_mapMenu->addSeparator();
+	_mapMenu->addAction(_showMapAction);
 
 	QMenu *graphMenu = menuBar()->addMenu(tr("Graph"));
 	graphMenu->addAction(_distanceGraphAction);
@@ -832,6 +913,7 @@ void GUI::createStatusBar()
 void GUI::about()
 {
 	QMessageBox msgBox(this);
+	QUrl homepage(APP_HOMEPAGE);
 
 	msgBox.setWindowTitle(tr("About GPXSee"));
 	msgBox.setText("<h2>" + QString(APP_NAME) + "</h2><p><p>" + tr("Version ")
@@ -839,7 +921,8 @@ void GUI::about()
 	msgBox.setInformativeText("<table width=\"300\"><tr><td>"
 	  + tr("GPXSee is distributed under the terms of the GNU General Public "
 	  "License version 3. For more info about GPXSee visit the project "
-	  "homepage at ") + "<a href=\"" + APP_HOMEPAGE + "\">" + APP_HOMEPAGE
+	  "homepage at ") + "<a href=\"" + homepage.toString() + "\">"
+	  + homepage.toString(QUrl::RemoveScheme).mid(2)
 	  + "</a>.</td></tr></table>");
 
 	QIcon icon = msgBox.windowIcon();
@@ -898,8 +981,8 @@ void GUI::keys()
 	msgBox.setWindowTitle(tr("Keyboard controls"));
 	msgBox.setText("<h3>" + tr("Keyboard controls") + "</h3>");
 	msgBox.setInformativeText(
-	  "<div><table width=\"300\"><tr><td>" + tr("Next file")
-	  + "</td><td><i>" + QKeySequence(NEXT_KEY).toString()
+	  "<style>td {padding-right: 1.5em;}</style><div><table><tr><td>"
+	  + tr("Next file") + "</td><td><i>" + QKeySequence(NEXT_KEY).toString()
 	  + "</i></td></tr><tr><td>" + tr("Previous file")
 	  + "</td><td><i>" + QKeySequence(PREV_KEY).toString()
 	  + "</i></td></tr><tr><td>" + tr("First file") + "</td><td><i>"
@@ -911,7 +994,6 @@ void GUI::keys()
 	  + "</i></td></tr><tr><td>" + tr("Previous map") + "</td><td><i>"
 	  + PREV_MAP_SHORTCUT.toString() + "</i></td></tr></table></div>");
 #endif
-
 	msgBox.exec();
 }
 
@@ -933,13 +1015,13 @@ void GUI::dataSources()
 	  + "</p><p><code>Map1	http://tile.server.com/map/$z/$x/$y.png"
 		  "<br/>Map2	http://mapserver.org/map/$z-$x-$y</code></p>"
 
-	  + "<h4>" + tr("Ofline maps") + "</h4><p>"
+	  + "<h4>" + tr("Offline maps") + "</h4><p>"
 	  + tr("Offline maps are loaded on program startup from the following "
 		"directory:")
 	  + "</p><p><code>" + USER_MAP_DIR + "</code></p><p>"
 	  + tr("The expected structure is one map/atlas in a separate subdirectory."
-		" Supported map formats are OziMap image-based maps and tiled TrekBuddy"
-		" maps/atlases (tared and non-tared).") + "</p>"
+		" Supported map formats are OziExplorer maps and TrekBuddy maps/atlases"
+		" (tared and non-tared).") + "</p>"
 
 	  + "<h4>" + tr("POIs") + "</h4><p>"
 	  + tr("To make GPXSee load a POI file automatically on startup, add "
@@ -1099,6 +1181,7 @@ void GUI::printFile()
 void GUI::openOptions()
 {
 	Options options(_options);
+	bool reload = false;
 #ifdef Q_WS_MAEMO_5
 	optDialog dialog(&options, this);
 #else
@@ -1131,6 +1214,39 @@ void GUI::openOptions()
 			_tabs.at(i)->setRenderHint(QPainter::Antialiasing,
 			  options.graphAntiAliasing);
 
+	if (options.elevationFilter != _options.elevationFilter) {
+		Track::setElevationFilter(options.elevationFilter);
+		reload = true;
+	}
+	if (options.speedFilter != _options.speedFilter) {
+		Track::setSpeedFilter(options.speedFilter);
+		reload = true;
+	}
+	if (options.heartRateFilter != _options.heartRateFilter) {
+		Track::setHeartRateFilter(options.heartRateFilter);
+		reload = true;
+	}
+	if (options.cadenceFilter != _options.cadenceFilter) {
+		Track::setCadenceFilter(options.cadenceFilter);
+		reload = true;
+	}
+	if (options.powerFilter != _options.powerFilter) {
+		Track::setPowerFilter(options.powerFilter);
+		reload = true;
+	}
+	if (options.outlierEliminate != _options.outlierEliminate) {
+		Track::setOutlierElimination(options.outlierEliminate);
+		reload = true;
+	}
+	if (options.pauseSpeed != _options.pauseSpeed) {
+		Track::setPauseSpeed(options.pauseSpeed);
+		reload = true;
+	}
+	if (options.pauseInterval != _options.pauseInterval) {
+		Track::setPauseInterval(options.pauseInterval);
+		reload = true;
+	}
+
 	if (options.poiRadius != _options.poiRadius)
 		_poi->setRadius(options.poiRadius);
 
@@ -1139,6 +1255,11 @@ void GUI::openOptions()
 		for (int i = 0; i < _tabs.count(); i++)
 			_tabs.at(i)->useOpenGL(options.useOpenGL);
 	}
+	if (options.pixmapCache != _options.pixmapCache)
+		QPixmapCache::setCacheLimit(options.pixmapCache * 1024);
+
+	if (reload)
+		reloadFile();
 
 	_options = options;
 }
@@ -1446,6 +1567,32 @@ void GUI::showGraphGrids(bool show)
 		_tabs.at(i)->showGrid(show);
 }
 
+void GUI::loadMap()
+{
+	QString fileName = QFileDialog::getOpenFileName(this, tr("Open map file"),
+	  QString(), tr("Map files (*.map *.tba *.tar)"));
+
+	if (fileName.isEmpty())
+		return;
+
+	if (_ml->loadMap(fileName)) {
+		QAction *a = new QAction(_ml->maps().last()->name(), this);
+		a->setCheckable(true);
+		a->setActionGroup(_mapsActionGroup);
+		_mapsSignalMapper->setMapping(a, _ml->maps().size() - 1);
+		connect(a, SIGNAL(triggered()), _mapsSignalMapper, SLOT(map()));
+		_mapActions.append(a);
+		_mapMenu->insertAction(_mapsEnd, a);
+		_showMapAction->setEnabled(true);
+		_clearMapCacheAction->setEnabled(true);
+		a->activate(QAction::Trigger);
+	} else {
+		QString error = tr("Error loading map:") + "\n\n"
+		  + fileName + "\n\n" + _ml->errorString();
+		QMessageBox::critical(this, APP_NAME, error);
+	}
+}
+
 void GUI::clearMapCache()
 {
 	_map->clearCache();
@@ -1500,26 +1647,27 @@ void GUI::updateWindowTitle()
 
 void GUI::mapChanged(int index)
 {
-	_map = _maps.at(index);
+	_map = _ml->maps().at(index);
 	_pathView->setMap(_map);
 }
 
 void GUI::nextMap()
 {
-	if (_maps.count() < 2)
+	if (_ml->maps().count() < 2)
 		return;
 
-	int next = (_maps.indexOf(_map) + 1) % _maps.count();
+	int next = (_ml->maps().indexOf(_map) + 1) % _ml->maps().count();
 	_mapActions.at(next)->setChecked(true);
 	mapChanged(next);
 }
 
 void GUI::prevMap()
 {
-	if (_maps.count() < 2)
+	if (_ml->maps().count() < 2)
 		return;
 
-	int prev = (_maps.indexOf(_map) + _maps.count() - 1) % _maps.count();
+	int prev = (_ml->maps().indexOf(_map) + _ml->maps().count() - 1)
+	  % _ml->maps().count();
 	_mapActions.at(prev)->setChecked(true);
 	mapChanged(prev);
 }
@@ -1695,6 +1843,7 @@ void GUI::keyPressEvent(QKeyEvent *event)
 			if (_fullscreenAction->isChecked()) {
 				_fullscreenAction->setChecked(false);
 				showFullscreen(false);
+				return;
 			}
 			break;
 	}
@@ -1703,7 +1852,10 @@ void GUI::keyPressEvent(QKeyEvent *event)
 		if (!(event->modifiers() & MODIFIER))
 			closeFiles();
 		openFile(file);
+		return;
 	}
+
+	QMainWindow::keyPressEvent(event);
 }
 
 void GUI::closeEvent(QCloseEvent *event)
@@ -1862,10 +2014,28 @@ void GUI::writeSettings()
 		settings.setValue(PATH_AA_SETTING, _options.pathAntiAliasing);
 	if (_options.graphAntiAliasing != GRAPH_AA_DEFAULT)
 		settings.setValue(GRAPH_AA_SETTING, _options.graphAntiAliasing);
+	if (_options.elevationFilter != ELEVATION_FILTER_DEFAULT)
+		settings.setValue(ELEVATION_FILTER_SETTING, _options.elevationFilter);
+	if (_options.speedFilter != SPEED_FILTER_DEFAULT)
+		settings.setValue(SPEED_FILTER_SETTING, _options.speedFilter);
+	if (_options.heartRateFilter != HEARTRATE_FILTER_DEFAULT)
+		settings.setValue(HEARTRATE_FILTER_SETTING, _options.heartRateFilter);
+	if (_options.cadenceFilter != CADENCE_FILTER_DEFAULT)
+		settings.setValue(CADENCE_FILTER_SETTING, _options.cadenceFilter);
+	if (_options.powerFilter != POWER_FILTER_DEFAULT)
+		settings.setValue(POWER_FILTER_SETTING, _options.powerFilter);
+	if (_options.outlierEliminate != OUTLIER_ELIMINATE_DEFAULT)
+		settings.setValue(OUTLIER_ELIMINATE_SETTING, _options.outlierEliminate);
+	if (_options.pauseSpeed != PAUSE_SPEED_DEFAULT)
+		settings.setValue(PAUSE_SPEED_SETTING, _options.pauseSpeed);
+	if (_options.pauseInterval != PAUSE_INTERVAL_DEFAULT)
+		settings.setValue(PAUSE_INTERVAL_SETTING, _options.pauseInterval);
 	if (_options.poiRadius != POI_RADIUS_DEFAULT)
 		settings.setValue(POI_RADIUS_SETTING, _options.poiRadius);
 	if (_options.useOpenGL != USE_OPENGL_DEFAULT)
 		settings.setValue(USE_OPENGL_SETTING, _options.useOpenGL);
+	if (_options.pixmapCache != PIXMAP_CACHE_DEFAULT)
+		settings.setValue(PIXMAP_CACHE_SETTING, _options.pixmapCache);
 	if (_options.printName != PRINT_NAME_DEFAULT)
 		settings.setValue(PRINT_NAME_SETTING, _options.printName);
 	if (_options.printDate != PRINT_DATE_DEFAULT)
@@ -1926,10 +2096,10 @@ void GUI::readSettings()
 	settings.beginGroup(MAP_SETTINGS_GROUP);
 	if (settings.value(SHOW_MAP_SETTING, SHOW_MAP_DEFAULT).toBool())
 		_showMapAction->setChecked(true);
-	if (_maps.count()) {
+	if (_ml->maps().count()) {
 		int index = mapIndex(settings.value(CURRENT_MAP_SETTING).toString());
 		_mapActions.at(index)->setChecked(true);
-		_map = _maps.at(index);
+		_map = _ml->maps().at(index);
 		_pathView->setMap(_map);
 	}
 	settings.endGroup();
@@ -2047,10 +2217,28 @@ void GUI::readSettings()
 	  GRAPH_WIDTH_DEFAULT).toInt();
 	_options.graphAntiAliasing = settings.value(GRAPH_AA_SETTING,
 	  GRAPH_AA_DEFAULT).toBool();
+	_options.elevationFilter = settings.value(ELEVATION_FILTER_SETTING,
+	  ELEVATION_FILTER_DEFAULT).toInt();
+	_options.speedFilter = settings.value(SPEED_FILTER_SETTING,
+	  SPEED_FILTER_DEFAULT).toInt();
+	_options.heartRateFilter = settings.value(HEARTRATE_FILTER_SETTING,
+	  HEARTRATE_FILTER_DEFAULT).toInt();
+	_options.cadenceFilter = settings.value(CADENCE_FILTER_SETTING,
+	  CADENCE_FILTER_DEFAULT).toInt();
+	_options.powerFilter = settings.value(POWER_FILTER_SETTING,
+	  POWER_FILTER_DEFAULT).toInt();
+	_options.outlierEliminate = settings.value(OUTLIER_ELIMINATE_SETTING,
+	  OUTLIER_ELIMINATE_DEFAULT).toBool();
+	_options.pauseSpeed = settings.value(PAUSE_SPEED_SETTING,
+	  PAUSE_SPEED_DEFAULT).toFloat();
+	_options.pauseInterval = settings.value(PAUSE_INTERVAL_SETTING,
+	  PAUSE_INTERVAL_DEFAULT).toInt();
 	_options.poiRadius = settings.value(POI_RADIUS_SETTING, POI_RADIUS_DEFAULT)
 	  .toInt();
 	_options.useOpenGL = settings.value(USE_OPENGL_SETTING, USE_OPENGL_DEFAULT)
 	  .toBool();
+	_options.pixmapCache = settings.value(PIXMAP_CACHE_SETTING,
+	  PIXMAP_CACHE_DEFAULT).toInt();
 	_options.printName = settings.value(PRINT_NAME_SETTING, PRINT_NAME_DEFAULT)
 	  .toBool();
 	_options.printDate = settings.value(PRINT_DATE_SETTING, PRINT_DATE_DEFAULT)
@@ -2084,7 +2272,18 @@ void GUI::readSettings()
 			_tabs.at(i)->useOpenGL(true);
 	}
 
+	Track::setElevationFilter(_options.elevationFilter);
+	Track::setSpeedFilter(_options.speedFilter);
+	Track::setHeartRateFilter(_options.heartRateFilter);
+	Track::setCadenceFilter(_options.cadenceFilter);
+	Track::setPowerFilter(_options.powerFilter);
+	Track::setOutlierElimination(_options.outlierEliminate);
+	Track::setPauseSpeed(_options.pauseSpeed);
+	Track::setPauseInterval(_options.pauseInterval);
+
 	_poi->setRadius(_options.poiRadius);
+
+	QPixmapCache::setCacheLimit(_options.pixmapCache * 1024);
 
 	settings.endGroup();
 #ifdef Q_WS_MAEMO_5
@@ -2094,8 +2293,8 @@ void GUI::readSettings()
 
 int GUI::mapIndex(const QString &name)
 {
-	for (int i = 0; i < _maps.count(); i++)
-		if (_maps.at(i)->name() == name)
+	for (int i = 0; i < _ml->maps().count(); i++)
+		if (_ml->maps().at(i)->name() == name)
 			return i;
 
 	return 0;

@@ -5,10 +5,12 @@
 ; The name of the installer
 Name "GPXSee"
 ; Program version
-!define VERSION "4.1"
+!define VERSION "4.9"
 
 ; The file to write
 OutFile "GPXSee-${VERSION}_x64.exe"
+; Compression method
+SetCompressor /SOLID lzma
 
 ; Required execution level 
 RequestExecutionLevel admin
@@ -89,6 +91,8 @@ Section "GPXSee" SEC_APP
   ; Put the files there
   File "gpxsee.exe"
   File "maps.txt"
+  File "ellipsoids.csv"
+  File "datums.csv"
   
   ; Create start menu entry and add links
   SetShellVarContext all
@@ -171,8 +175,8 @@ Section "MSVC runtime" SEC_MSVC
 
   DetailPrint "Installing Visual C++ 2015 Redistributable..."
   SetOutPath $TEMP
-  File "VC_redist.x64.exe"
-  ExecWait '"$TEMP/VC_redist.x64.exe" /install /quiet /norestart'
+  File "vcredist_x64.exe"
+  ExecWait '"$TEMP\vcredist_x64.exe" /install /quiet /norestart'
   SetOutPath $INSTDIR
 
   done:

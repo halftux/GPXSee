@@ -1,6 +1,7 @@
 #include <QDir>
 #include <QtAlgorithms>
 #include <QPainter>
+#include "rectc.h"
 #include "tar.h"
 #include "atlas.h"
 
@@ -30,25 +31,35 @@ static bool yCmp(const OfflineMap *m1, const OfflineMap *m2)
 	return TL(m1).y() > TL(m2).y();
 }
 
-bool Atlas::isAtlas(const QFileInfoList &files)
+bool Atlas::isAtlas(Tar &tar, const QString &path)
 {
-	for (int i = 0; i < files.count(); i++) {
-		const QString &fileName = files.at(i).fileName();
-		if (fileName.endsWith(".tar")) {
-			if (!_tar.load(files.at(i).absoluteFilePath())) {
-				qWarning("%s: %s: error loading tar file", qPrintable(_name),
-				  qPrintable(fileName));
-				return false;
-			}
-			QStringList tarFiles = _tar.files();
-			for (int j = 0; j < tarFiles.size(); j++)
-				if (tarFiles.at(j).endsWith(".tba"))
-					return true;
-		} else if (fileName.endsWith(".tba"))
-			return true;
+	QFileInfo fi(path);
+	QByteArray ba;
+	QString suffix = fi.suffix().toLower();
+
+	if (suffix == "tar") {
+		if (!tar.load(path)) {
+			_errorString = "Error reading tar file";
+			return false;
+		}
+		QString tbaFileName = fi.completeBaseName() + ".tba";
+		ba = tar.file(tbaFileName);
+	} else if (suffix == "tba") {
+		QFile tbaFile(path);
+		if (!tbaFile.open(QIODevice::ReadOnly)) {
+			_errorString = QString("Error opening tba file: %1")
+			  .arg(tbaFile.errorString());
+			return false;
+		}
+		ba = tbaFile.readAll();
 	}
 
-	return false;
+	if (ba.startsWith("Atlas 1.0"))
+		return true;
+	else {
+		_errorString = "Missing or invalid tba file";
+		return false;
+	}
 }
 
 void Atlas::computeZooms()
@@ -100,36 +111,46 @@ void Atlas::computeBounds()
 		  BR(_maps.at(i))), QRectF(offsets.at(i), _maps.at(i)->bounds().size())));
 }
 
-Atlas::Atlas(const QString &path, QObject *parent) : Map(parent)
+Atlas::Atlas(const QString &fileName, QObject *parent) : Map(parent)
 {
+	Tar tar;
+	QFileInfo fi(fileName);
+
 	_valid = false;
 	_zoom = 0;
+	_name = fi.dir().dirName();
+	_ci = -1; _cz = -1;
 
-	QFileInfo fi(path);
-	_name = fi.fileName();
-
-	QDir dir(path);
-	QFileInfoList files = dir.entryInfoList(QDir::Files);
-	if (!isAtlas(files))
+	if (!isAtlas(tar, fileName))
 		return;
 
+	QDir dir(fi.absolutePath());
 	QFileInfoList layers = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
 	for (int n = 0; n < layers.count(); n++) {
 		QDir zdir(layers.at(n).absoluteFilePath());
 		QFileInfoList maps = zdir.entryInfoList(QDir::Dirs
 		  | QDir::NoDotAndDotDot);
 		for (int i = 0; i < maps.count(); i++) {
+			QString mapFile = maps.at(i).absoluteFilePath() + "/"
+			  + maps.at(i).fileName() + ".map";
+
 			OfflineMap *map;
-			if (_tar.isOpen())
-				map = new OfflineMap(_tar, maps.at(i).absoluteFilePath(), this);
+			if (tar.isOpen())
+				map = new OfflineMap(mapFile, tar, this);
 			else
-				map = new OfflineMap(maps.at(i).absoluteFilePath(), this);
+				map = new OfflineMap(mapFile, this);
+
 			if (map->isValid())
 				_maps.append(map);
+			else {
+				_errorString = QString("Error loading map: %1: %2")
+				  .arg(mapFile, map->errorString());
+				return;
+			}
 		}
 	}
 	if (_maps.isEmpty()) {
-		qWarning("%s: No usable maps available", qPrintable(_name));
+		_errorString = "No maps found in atlas";
 		return;
 	}
 
@@ -178,13 +199,18 @@ qreal Atlas::zoom() const
 	return _zoom;
 }
 
-qreal Atlas::zoomFit(const QSize &size, const QRectF &br)
+qreal Atlas::zoomFit(const QSize &size, const RectC &br)
 {
 	_zoom = 0;
 
+	if (!br.isValid()) {
+		_zoom = _zooms.size() - 1;
+		return _zoom;
+	}
+
 	for (int z = 0; z < _zooms.count(); z++) {
 		for (int i = _zooms.at(z).first; i <= _zooms.at(z).second; i++) {
-			if (_bounds.at(i).first.contains(_maps.at(i)->ll2pp(br.center())))
+			if (!_bounds.at(i).first.contains(_maps.at(i)->ll2pp(br.center())))
 				continue;
 
 			QRect sbr = QRectF(_maps.at(i)->ll2xy(br.topLeft()),
@@ -192,6 +218,26 @@ qreal Atlas::zoomFit(const QSize &size, const QRectF &br)
 
 			if (sbr.size().width() > size.width()
 			  || sbr.size().height() > size.height())
+				return _zoom;
+
+			_zoom = z;
+			break;
+		}
+	}
+
+	return _zoom;
+}
+
+qreal Atlas::zoomFit(qreal resolution, const Coordinates &c)
+{
+	_zoom = 0;
+
+	for (int z = 0; z < _zooms.count(); z++) {
+		for (int i = _zooms.at(z).first; i <= _zooms.at(z).second; i++) {
+			if (!_bounds.at(i).first.contains(_maps.at(i)->ll2pp(c)))
+				continue;
+
+			if (_maps.at(i)->resolution(_maps.at(i)->ll2xy(c)) < resolution)
 				return _zoom;
 
 			_zoom = z;
@@ -214,22 +260,33 @@ qreal Atlas::zoomOut()
 	return _zoom;
 }
 
-QPointF Atlas::ll2xy(const Coordinates &c) const
+QPointF Atlas::ll2xy(const Coordinates &c)
 {
-	int idx = _zooms.at(_zoom).first;
+	QPointF pp;
 
-	for (int i = _zooms.at(_zoom).first; i <= _zooms.at(_zoom).second; i++) {
-		if (_bounds.at(i).first.contains(_maps.at(i)->ll2pp(c))) {
-			idx = i;
-			break;
+	if (_cz != _zoom) {
+		_ci = -1;
+		_cz = _zoom;
+	}
+
+	if (_ci >= 0)
+		pp = _maps.at(_ci)->ll2pp(c);
+	if (_ci < 0 || !_bounds.at(_ci).first.contains(pp)) {
+		_ci = _zooms.at(_zoom).first;
+		for (int i = _zooms.at(_zoom).first; i <= _zooms.at(_zoom).second; i++) {
+			pp = _maps.at(i)->ll2pp(c);
+			if (_bounds.at(i).first.contains(pp)) {
+				_ci = i;
+				break;
+			}
 		}
 	}
 
-	QPointF p = _maps.at(idx)->ll2xy(c);
-	return p + _bounds.at(idx).second.topLeft();
+	QPointF p = _maps.at(_ci)->pp2xy(pp);
+	return p + _bounds.at(_ci).second.topLeft();
 }
 
-Coordinates Atlas::xy2ll(const QPointF &p) const
+Coordinates Atlas::xy2ll(const QPointF &p)
 {
 	int idx = _zooms.at(_zoom).first;
 
@@ -275,4 +332,10 @@ void Atlas::draw(QPainter *painter, const QRectF &rect, int mapIndex)
 	painter->translate(offset);
 	map->draw(painter, pr);
 	painter->translate(-offset);
+}
+
+void Atlas::unload()
+{
+	for (int i = 0; i < _maps.count(); i++)
+		_maps.at(i)->unload();
 }

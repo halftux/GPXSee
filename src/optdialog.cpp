@@ -48,6 +48,40 @@ optDialog::optDialog(Options *options, QWidget *parent) :
 	ui->checkBox_exp_movingtime->setChecked(_options->printMovingTime);
 	ui->checkBox_exp_itemcount->setChecked(_options->printItemCount);
 	ui->checkBox_exp_separate->setChecked(_options->separateGraphPage);
+
+	QString filterToolTip = tr("Moving average window size");
+
+	ui->spinBox_elevationFilter->setValue(_options->elevationFilter);
+	ui->spinBox_elevationFilter->setToolTip(filterToolTip);
+	ui->spinBox_speedFilter->setValue(_options->speedFilter);
+	ui->spinBox_speedFilter->setToolTip(filterToolTip);
+	ui->spinBox_heartRateFilter->setValue(_options->heartRateFilter);
+	ui->spinBox_heartRateFilter->setToolTip(filterToolTip);
+	ui->spinBox_cadenceFilter->setValue(_options->cadenceFilter);
+	ui->spinBox_cadenceFilter->setToolTip(filterToolTip);
+	ui->spinBox_powerFilter->setValue(_options->powerFilter);
+	ui->spinBox_powerFilter->setToolTip(filterToolTip);
+
+	ui->checkBox_outlierEliminate->setChecked(_options->outlierEliminate);
+
+	ui->doubleSpinBox_pauseSpeed->setDecimals(1);
+	ui->doubleSpinBox_pauseSpeed->setSingleStep(0.1);
+	ui->doubleSpinBox_pauseSpeed->setMinimum(0.1);
+	if (_options->units == Imperial) {
+		ui->doubleSpinBox_pauseSpeed->setValue(_options->pauseSpeed * MS2MIH);
+		ui->doubleSpinBox_pauseSpeed->setSuffix(UNIT_SPACE + tr("mi/h"));
+	} else {
+		ui->doubleSpinBox_pauseSpeed->setValue(_options->pauseSpeed * MS2KMH);
+		ui->doubleSpinBox_pauseSpeed->setSuffix(UNIT_SPACE + tr("km/h"));
+	}
+	ui->spinBox_pauseInterval->setMinimum(1);
+	ui->spinBox_pauseInterval->setSuffix(UNIT_SPACE + tr("s"));
+	ui->spinBox_pauseInterval->setValue(_options->pauseInterval);
+	ui->spinBox_pixmapCache->setMinimum(16);
+	ui->spinBox_pixmapCache->setMaximum(1024);
+	ui->spinBox_pixmapCache->setSuffix(UNIT_SPACE + tr("MB"));
+	ui->spinBox_pixmapCache->setValue(_options->pixmapCache);
+
 }
 
 optDialog::~optDialog()
@@ -68,12 +102,25 @@ void optDialog::accept()
 	_options->graphWidth = ui->spinBox_graph_lwidth->value();
 	_options->graphAntiAliasing = ui->checkBox_graph_antia->isChecked();
 
-	if (_options->units == Imperial)
+	_options->elevationFilter = ui->spinBox_elevationFilter->value();
+	_options->speedFilter = ui->spinBox_speedFilter->value();
+	_options->heartRateFilter = ui->spinBox_heartRateFilter->value();
+	_options->cadenceFilter = ui->spinBox_cadenceFilter->value();
+	_options->powerFilter = ui->spinBox_powerFilter->value();
+	_options->outlierEliminate = ui->checkBox_outlierEliminate->isChecked();
+	_options->pauseSpeed = (_options->units == Imperial)
+		? ui->doubleSpinBox_pauseSpeed->value() / MS2MIH : ui->doubleSpinBox_pauseSpeed->value() / MS2KMH;
+	_options->pauseInterval = ui->spinBox_pauseInterval->value();
+
+	/*if (_options->units == Imperial)
 		_options->poiRadius = ui->doubleSpinBox_poi_radius->value() * MIINM;
 	else
-		_options->poiRadius = ui->doubleSpinBox_poi_radius->value() * KMINM;
+		_options->poiRadius = ui->doubleSpinBox_poi_radius->value() * KMINM;*/
+	_options->poiRadius = (_options->units == Imperial)
+		? ui->doubleSpinBox_poi_radius->value() * MIINM :  ui->doubleSpinBox_poi_radius->value() * KMINM;
 
 	_options->useOpenGL = ui->checkBox_system_opengl->isChecked();
+	_options->pixmapCache = ui->spinBox_pixmapCache->value();
 
 	_options->printName = ui->checkBox_exp_name->isChecked();
 	_options->printDate = ui->checkBox_exp_date->isChecked();
