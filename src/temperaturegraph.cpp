@@ -1,13 +1,13 @@
 #include "data.h"
+#include "temperaturegraphitem.h"
 #include "temperaturegraph.h"
 
 
 TemperatureGraph::TemperatureGraph(QWidget *parent) : GraphTab(parent)
 {
-	_units = Metric;
 	_showTracks = true;
 
-	setYUnits();
+	setYUnits(Metric);
 	setYLabel(tr("Temperature"));
 
 	setSliderPrecision(1);
@@ -30,21 +30,16 @@ void TemperatureGraph::loadData(const Data &data, const QList<PathItem *> &paths
 {
 	for (int i = 0; i < data.tracks().count(); i++) {
 		const Graph &graph = data.tracks().at(i)->temperature();
-		qreal sum = 0, w = 0;
 
 		if (graph.size() < 2) {
 			skipColor();
 			continue;
 		}
 
-		for (int j = 1; j < graph.size(); j++) {
-			qreal ds = graph.at(j).s() - graph.at(j-1).s();
-			sum += graph.at(j).y() * ds;
-			w += ds;
-		}
-		_avg.append(QPointF(data.tracks().at(i)->distance(), sum/w));
+		TemperatureGraphItem *gi = new TemperatureGraphItem(graph, _graphType);
+		GraphView::addGraph(gi, paths.at(i));
 
-		GraphView::loadGraph(graph, paths.at(i));
+		_avg.append(QPointF(data.tracks().at(i)->distance(), gi->avg()));
 	}
 
 	for (int i = 0; i < data.routes().count(); i++)
@@ -75,9 +70,9 @@ void TemperatureGraph::clear()
 	GraphView::clear();
 }
 
-void TemperatureGraph::setYUnits()
+void TemperatureGraph::setYUnits(Units units)
 {
-	if (_units == Metric) {
+	if (units == Metric) {
 		GraphView::setYUnits(QChar(0x00B0) + tr("C"));
 		setYScale(1);
 		setYOffset(0);
@@ -88,15 +83,12 @@ void TemperatureGraph::setYUnits()
 	}
 }
 
-void TemperatureGraph::setUnits(enum Units units)
+void TemperatureGraph::setUnits(Units units)
 {
-	_units = units;
-
-	setYUnits();
+	setYUnits(units);
 	setInfo();
-	GraphView::setUnits(units);
 
-	redraw();
+	GraphView::setUnits(units);
 }
 
 void TemperatureGraph::showTracks(bool show)

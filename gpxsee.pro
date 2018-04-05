@@ -1,5 +1,6 @@
+
 TARGET = gpxsee
-VERSION = 4.9
+VERSION = 4.16
 
 QT += core \
     gui \
@@ -98,7 +99,14 @@ HEADERS += src/config.h \
     src/albersequal.h \
     src/oddspinbox.h \
     src/rectc.h \
-    src/searchpointer.h
+    src/searchpointer.h \
+    src/percentslider.h \
+    src/elevationgraphitem.h \
+    src/speedgraphitem.h \
+    src/heartrategraphitem.h \
+    src/temperaturegraphitem.h \
+    src/cadencegraphitem.h \
+    src/powergraphitem.h
 
 SOURCES += src/main.cpp \
     src/gui.cpp \
@@ -168,11 +176,16 @@ SOURCES += src/main.cpp \
     src/maplist.cpp \
     src/albersequal.cpp \
     src/oddspinbox.cpp \
-    src/rectc.cpp
+    src/rectc.cpp \
+    src/percentslider.cpp \
+    src/elevationgraphitem.cpp \
+    src/speedgraphitem.cpp \
+    src/heartrategraphitem.cpp \
+    src/temperaturegraphitem.cpp \
+    src/cadencegraphitem.cpp \
+    src/powergraphitem.cpp
 
 RESOURCES += gpxsee.qrc
-TRANSLATIONS = lang/gpxsee_cs.ts \
-    lang/gpxsee_sv.ts
 
 maemo5 {
 SOURCES +=     src/expdialog.cpp \

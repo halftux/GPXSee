@@ -8,8 +8,14 @@ void RangeF::resize(qreal size)
 	_max += adj;
 }
 
+QDebug operator<<(QDebug dbg, const Range &range)
+{
+	dbg.nospace() << "Range(" << range.min() << ", " << range.max() << ")";
+	return dbg.space();
+}
+
 QDebug operator<<(QDebug dbg, const RangeF &range)
 {
 	dbg.nospace() << "RangeF(" << range.min() << ", " << range.max() << ")";
-	return dbg.maybeSpace();
+	return dbg.space();
 }

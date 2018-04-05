@@ -1,15 +1,16 @@
 #include "config.h"
 #include "data.h"
+#include "tooltip.h"
+#include "speedgraphitem.h"
 #include "speedgraph.h"
 
 
 SpeedGraph::SpeedGraph(QWidget *parent) : GraphTab(parent)
 {
-	_units = Metric;
 	_timeType = Total;
 	_showTracks = true;
 
-	setYUnits();
+	setYUnits(Metric);
 	setYLabel(tr("Speed"));
 
 	setSliderPrecision(1);
@@ -29,18 +30,21 @@ void SpeedGraph::setInfo()
 void SpeedGraph::loadData(const Data &data, const QList<PathItem *> &paths)
 {
 	for (int i = 0; i < data.tracks().count(); i++) {
-		const Graph &graph = data.tracks().at(i)->speed();
+		const Track *track = data.tracks().at(i);
+		const Graph &graph = track->speed();
+
 		if (graph.size() < 2) {
 			skipColor();
 			continue;
 		}
 
-		_avg.append(QPointF(data.tracks().at(i)->distance(),
-		  data.tracks().at(i)->distance() / data.tracks().at(i)->time()));
-		_avgM.append(QPointF(data.tracks().at(i)->distance(),
-		  data.tracks().at(i)->distance() / data.tracks().at(i)->movingTime()));
+		SpeedGraphItem *gi = new SpeedGraphItem(graph, _graphType,
+		  track->movingTime());
+		gi->setTimeType(_timeType);
+		GraphView::addGraph(gi, paths.at(i));
 
-		GraphView::loadGraph(graph, paths.at(i));
+		_avg.append(QPointF(track->distance(), gi->avg()));
+		_mavg.append(QPointF(track->distance(), gi->mavg()));
 	}
 
 	for (int i = 0; i < data.routes().count(); i++)
@@ -55,7 +59,7 @@ qreal SpeedGraph::avg() const
 {
 	qreal sum = 0, w = 0;
 	QList<QPointF>::const_iterator it;
-	const QList<QPointF> &list = (_timeType == Moving) ? _avgM : _avg;
+	const QList<QPointF> &list = (_timeType == Moving) ? _mavg : _avg;
 
 	for (it = list.begin(); it != list.end(); it++) {
 		sum += it->y() * it->x();
@@ -68,14 +72,14 @@ qreal SpeedGraph::avg() const
 void SpeedGraph::clear()
 {
 	_avg.clear();
-	_avgM.clear();
+	_mavg.clear();
 
 	GraphView::clear();
 }
 
-void SpeedGraph::setYUnits()
+void SpeedGraph::setYUnits(Units units)
 {
-	if (_units == Metric) {
+	if (units == Metric) {
 		GraphView::setYUnits(tr("km/h"));
 		setYScale(MS2KMH);
 	} else {
@@ -84,20 +88,20 @@ void SpeedGraph::setYUnits()
 	}
 }
 
-void SpeedGraph::setUnits(enum Units units)
+void SpeedGraph::setUnits(Units units)
 {
-	_units = units;
-
-	setYUnits();
+	setYUnits(units);
 	setInfo();
-	GraphView::setUnits(units);
 
-	redraw();
+	GraphView::setUnits(units);
 }
 
 void SpeedGraph::setTimeType(enum TimeType type)
 {
 	_timeType = type;
+
+	for (int i = 0; i < _graphs.size(); i++)
+		static_cast<SpeedGraphItem*>(_graphs.at(i))->setTimeType(type);
 
 	setInfo();
 	redraw();

@@ -56,6 +56,16 @@ Coordinates TCXParser::position()
 	return pos;
 }
 
+void TCXParser::heartRateBpm(Trackpoint &trackpoint)
+{
+	while (_reader.readNextStartElement()) {
+		if (_reader.name() == "Value")
+			trackpoint.setHeartRate(number());
+		else
+			_reader.skipCurrentElement();
+	}
+}
+
 void TCXParser::extensions(Trackpoint &trackpoint)
 {
 	while (_reader.readNextStartElement()) {
@@ -78,7 +88,7 @@ void TCXParser::trackpointData(Trackpoint &trackpoint)
 		else if (_reader.name() == "Time")
 			trackpoint.setTimestamp(time());
 		else if (_reader.name() == "HeartRateBpm")
-			trackpoint.setHeartRate(number());
+			heartRateBpm(trackpoint);
 		else if (_reader.name() == "Cadence")
 			trackpoint.setCadence(number());
 		else if (_reader.name() == "Extensions")
@@ -131,7 +141,7 @@ void TCXParser::lap(TrackData &track)
 	}
 }
 
-void TCXParser::course(TrackData &track)
+void TCXParser::course(QList<Waypoint> &waypoints, TrackData &track)
 {
 	while (_reader.readNextStartElement()) {
 		if (_reader.name() == "Track")
@@ -144,7 +154,7 @@ void TCXParser::course(TrackData &track)
 			Waypoint w;
 			waypointData(w);
 			if (w.coordinates().isValid())
-				_waypoints.append(w);
+				waypoints.append(w);
 			else
 				warning("Missing Trackpoint coordinates");
 		} else
@@ -162,56 +172,77 @@ void TCXParser::activity(TrackData &track)
 	}
 }
 
-void TCXParser::courses()
+void TCXParser::courses(QList<TrackData> &tracks, QList<Waypoint> &waypoints)
 {
 	while (_reader.readNextStartElement()) {
 		if (_reader.name() == "Course") {
-			_tracks.append(TrackData());
-			course(_tracks.back());
+			tracks.append(TrackData());
+			course(waypoints, tracks.back());
 		} else
 			_reader.skipCurrentElement();
 	}
 }
 
-void TCXParser::activities()
+void TCXParser::sport(QList<TrackData> &tracks)
 {
 	while (_reader.readNextStartElement()) {
 		if (_reader.name() == "Activity") {
-			_tracks.append(TrackData());
-			activity(_tracks.back());
+			tracks.append(TrackData());
+			activity(tracks.back());
 		} else
 			_reader.skipCurrentElement();
 	}
 }
 
-void TCXParser::tcx()
+void TCXParser::multiSportSession(QList<TrackData> &tracks)
 {
 	while (_reader.readNextStartElement()) {
-		if (_reader.name() == "Courses")
-			courses();
-		else if (_reader.name() == "Activities")
-			activities();
+		if (_reader.name() == "FirstSport" || _reader.name() == "NextSport")
+			sport(tracks);
 		else
 			_reader.skipCurrentElement();
 	}
 }
 
-bool TCXParser::parse()
+void TCXParser::activities(QList<TrackData> &tracks)
 {
+	while (_reader.readNextStartElement()) {
+		if (_reader.name() == "Activity") {
+			tracks.append(TrackData());
+			activity(tracks.back());
+		} else if (_reader.name() == "MultiSportSession")
+			multiSportSession(tracks);
+		else
+			_reader.skipCurrentElement();
+	}
+}
+
+void TCXParser::tcx(QList<TrackData> &tracks, QList<Waypoint> &waypoints)
+{
+	while (_reader.readNextStartElement()) {
+		if (_reader.name() == "Courses")
+			courses(tracks, waypoints);
+		else if (_reader.name() == "Activities")
+			activities(tracks);
+		else
+			_reader.skipCurrentElement();
+	}
+}
+
+bool TCXParser::parse(QFile *file, QList<TrackData> &tracks,
+  QList<RouteData> &routes, QList<Waypoint> &waypoints)
+{
+	Q_UNUSED(routes);
+
+	_reader.clear();
+	_reader.setDevice(file);
+
 	if (_reader.readNextStartElement()) {
 		if (_reader.name() == "TrainingCenterDatabase")
-			tcx();
+			tcx(tracks, waypoints);
 		else
 			_reader.raiseError("Not a TCX file");
 	}
 
 	return !_reader.error();
-}
-
-bool TCXParser::loadFile(QFile *file)
-{
-	_reader.clear();
-	_reader.setDevice(file);
-
-	return parse();
 }

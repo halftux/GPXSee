@@ -23,19 +23,17 @@ public:
 
 	const QString &name() const {return _name;}
 
-	QRectF bounds() const {return QRectF(QPointF(0, 0), _size);}
-	qreal resolution(const QPointF &) const {return _resolution;}
+	QRectF bounds() const;
+	qreal resolution(const QPointF &p) const;
 
-	qreal zoom() const {return 0;}
-	qreal zoomFit(const QSize &, const RectC &) {return 0;}
-	qreal zoomFit(qreal, const Coordinates &) {return 0;}
-	qreal zoomIn() {return 0;}
-	qreal zoomOut() {return 0;}
+	qreal zoom() const {return _zoom;}
+	qreal zoomFit(const QSize &size, const RectC &br);
+	qreal zoomFit(qreal resolution, const Coordinates &c);
+	qreal zoomIn();
+	qreal zoomOut();
 
-	QPointF ll2xy(const Coordinates &c)
-	  {return _transform.map(_projection->ll2xy(c));}
-	Coordinates xy2ll(const QPointF &p)
-	  {return _projection->xy2ll(_inverted.map(p));}
+	QPointF ll2xy(const Coordinates &c);
+	Coordinates xy2ll(const QPointF &p);
 
 	void draw(QPainter *painter, const QRectF &rect);
 
@@ -53,13 +51,13 @@ public:
 	  {return _transform.map(p);}
 
 private:
-	typedef struct {
+	struct ReferencePoint {
 		QPoint xy;
 		Coordinates ll;
 		QPointF pp;
-	} ReferencePoint;
+	};
 
-	typedef struct {
+	struct ProjectionSetup {
 		double latitudeOrigin;
 		double longitudeOrigin;
 		double scale;
@@ -68,7 +66,7 @@ private:
 		double standardParallel1;
 		double standardParallel2;
 		int zone;
-	} ProjectionSetup;
+	};
 
 	int parse(QIODevice &device, QList<ReferencePoint> &points,
 	  QString &projection, ProjectionSetup &setup, QString &datum);
@@ -77,6 +75,8 @@ private:
 	bool totalSizeSet();
 	bool createProjection(const QString &datum, const QString &projection,
 	  const ProjectionSetup &setup, QList<ReferencePoint> &points);
+	bool simpleTransformation(const QList<ReferencePoint> &points);
+	bool affineTransformation(const QList<ReferencePoint> &points);
 	bool computeTransformation(const QList<ReferencePoint> &points);
 	bool computeResolution(QList<ReferencePoint> &points);
 	bool getTileInfo(const QStringList &tiles, const QString &path = QString());
@@ -85,6 +85,8 @@ private:
 	void drawTiled(QPainter *painter, const QRectF &rect);
 	void drawOZF(QPainter *painter, const QRectF &rect);
 	void drawImage(QPainter *painter, const QRectF &rect);
+
+	void rescale(int zoom);
 
 	QString _name;
 	bool _valid;
@@ -102,6 +104,9 @@ private:
 	QString _imgPath;
 	QSize _tileSize;
 	QString _tileName;
+
+	int _zoom;
+	QPointF _scale;
 };
 
 #endif // OFFLINEMAP_H

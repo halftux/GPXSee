@@ -30,6 +30,12 @@ expDialog::expDialog(Export *exp, QWidget *parent) :
 	if ((index = ui->comboBox_pagesize->findData(_export->paperSize)) >= 0)
 		ui->comboBox_pagesize->setCurrentIndex(index);
 
+	ui->comboBox_resolution->addItem("300 DPI", 300);
+	ui->comboBox_resolution->addItem("600 DPI", 600);
+	ui->comboBox_resolution->addItem("1200 DPI", 1200);
+	if ((index = ui->comboBox_resolution->findData(_export->resolution)) >= 0)
+		ui->comboBox_resolution->setCurrentIndex(index);
+
 	if (_export->orientation == QPrinter::Portrait)
 		ui->radioButton_portrait->setChecked(true);
 	else
@@ -97,9 +103,11 @@ void expDialog::accept()
 	  ? QPrinter::Portrait : QPrinter::Landscape;
 	QPrinter::PaperSize paperSize = static_cast<QPrinter::PaperSize>
 	  (ui->comboBox_pagesize->itemData(ui->comboBox_pagesize->currentIndex()).toInt());
+	int resolution = ui->comboBox_resolution->itemData(ui->comboBox_resolution->currentIndex()).toInt();
 
 	_export->fileName = ui->widget_fileselect->file();
 	_export->paperSize = paperSize;
+	_export->resolution = resolution;
 	_export->orientation = orientation;
 	if (_export->units == Imperial)
 		_export->margins = MarginsF(ui->doubleSpinBox_leftmargin->value() / MM2IN,

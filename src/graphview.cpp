@@ -13,6 +13,7 @@
 #include "graph.h"
 #include "graphitem.h"
 #include "pathitem.h"
+#include "format.h"
 #include "graphview.h"
 
 
@@ -139,7 +140,13 @@ void GraphView::setXUnits()
 void GraphView::setUnits(Units units)
 {
 	_units = units;
+
+	for (int i = 0; i < _graphs.count(); i++)
+		_graphs.at(i)->setUnits(units);
+
 	setXUnits();
+
+	redraw();
 }
 
 void GraphView::setGraphType(GraphType type)
@@ -167,29 +174,31 @@ void GraphView::showGrid(bool show)
 	_grid->setVisible(show);
 }
 
-void GraphView::loadGraph(const Graph &graph, PathItem *path, int id)
+void GraphView::showSliderInfo(bool show)
 {
-	if (graph.size() < 2)
-		return;
+	_sliderInfo->setVisible(show);
+}
 
-	GraphItem *gi = new GraphItem(graph);
-	gi->setGraphType(_graphType);
-	gi->setId(id);
-	gi->setColor(_palette.nextColor());
-	gi->setWidth(_width);
+void GraphView::addGraph(GraphItem *graph, PathItem *path, int id)
+{
+	graph->setUnits(_units);
+	graph->setId(id);
+	graph->setColor(_palette.nextColor());
+	graph->setWidth(_width);
 
-	connect(this, SIGNAL(sliderPositionChanged(qreal)), gi,
+	connect(this, SIGNAL(sliderPositionChanged(qreal)), graph,
 	  SLOT(emitSliderPositionChanged(qreal)));
-	connect(gi, SIGNAL(sliderPositionChanged(qreal)), path,
+	connect(graph, SIGNAL(sliderPositionChanged(qreal)), path,
 	  SLOT(moveMarker(qreal)));
-	connect(path, SIGNAL(selected(bool)), gi, SLOT(selected(bool)));
+	connect(path, SIGNAL(selected(bool)), graph, SLOT(hover(bool)));
+	connect(graph, SIGNAL(selected(bool)), path, SLOT(hover(bool)));
 
-	_graphs.append(gi);
+	_graphs.append(graph);
 
 	if (!_hide.contains(id)) {
-		_visible.append(gi);
-		_scene->addItem(gi);
-		_bounds |= gi->bounds();
+		_visible.append(graph);
+		_scene->addItem(graph);
+		_bounds |= graph->bounds();
 		setXUnits();
 	}
 }
@@ -227,16 +236,16 @@ void GraphView::showGraph(bool show, int id)
 	}
 }
 
-void GraphView::redraw()
-{
-	redraw(viewport()->size() - QSizeF(MARGIN, MARGIN));
-}
-
 QRectF GraphView::bounds() const
 {
 	QRectF br(_bounds);
 	br.moveTopLeft(QPointF(br.left(), -br.top() - br.height()));
 	return br;
+}
+
+void GraphView::redraw()
+{
+	redraw(viewport()->size() - QSizeF(MARGIN, MARGIN));
 }
 
 void GraphView::redraw(const QSizeF &size)
@@ -326,11 +335,9 @@ void GraphView::mousePressEvent(QMouseEvent *e)
 	QGraphicsView::mousePressEvent(e);
 }
 
-void GraphView::plot(QPainter *painter, const QRectF &target)
+void GraphView::plot(QPainter *painter, const QRectF &target, qreal scale)
 {
-	qreal ratio = painter->paintEngine()->paintDevice()->logicalDpiX()
-	  / SCREEN_DPI;
-	QSizeF canvas = QSizeF(target.width() / ratio, target.height() / ratio);
+	QSizeF canvas = QSizeF(target.width() / scale, target.height() / scale);
 
 	setUpdatesEnabled(false);
 	redraw(canvas);
@@ -374,22 +381,26 @@ void GraphView::updateSliderPosition()
 		_slider->setVisible(false);
 	}
 
-	updateSliderInfo();
+	if (_slider->isVisible())
+		updateSliderInfo();
 }
 
 void GraphView::updateSliderInfo()
 {
-	_sliderInfo->setVisible(_visible.count() == 1);
-	if (!_sliderInfo->isVisible())
-		return;
+	qreal r, y;
 
-	QRectF br(_visible.first()->bounds());
-	if (br.height() < _minYRange)
-		br.adjust(0, -(_minYRange/2 - br.height()/2), 0,
-		  _minYRange/2 - br.height()/2);
+	if (_visible.count() > 1) {
+		r = 0;
+		y = 0;
+	} else {
+		QRectF br(_visible.first()->bounds());
+		if (br.height() < _minYRange)
+			br.adjust(0, -(_minYRange/2 - br.height()/2), 0,
+			  _minYRange/2 - br.height()/2);
 
-	qreal y = _visible.first()->yAtX(_sliderPos);
-	qreal r = (y - br.bottom()) / br.height();
+		y = _visible.first()->yAtX(_sliderPos);
+		r = (y - br.bottom()) / br.height();
+	}
 
 	qreal pos = (_sliderPos / bounds().width()) * _slider->area().width();
 	SliderInfoItem::Side s = (pos + _sliderInfo->boundingRect().width()
@@ -397,8 +408,11 @@ void GraphView::updateSliderInfo()
 
 	_sliderInfo->setSide(s);
 	_sliderInfo->setPos(QPointF(0, _slider->boundingRect().height() * r));
-	_sliderInfo->setText(QString::number(-y * _yScale + _yOffset, 'f',
-	  _precision));
+	_sliderInfo->setText(_graphType == gtTime ? Format::timeSpan(_sliderPos,
+	  bounds().width() > 3600) : QString::number(_sliderPos * _xScale, 'f', 1)
+	  + UNIT_SPACE + _xUnits, (_visible.count() > 1) ? QString()
+	  : QString::number(-y * _yScale + _yOffset, 'f', _precision) + UNIT_SPACE
+	  + _yUnits);
 }
 
 void GraphView::emitSliderPositionChanged(const QPointF &pos)
@@ -454,6 +468,8 @@ void GraphView::setGraphWidth(int width)
 
 	for (int i = 0; i < _graphs.count(); i++)
 		_graphs.at(i)->setWidth(width);
+
+	redraw();
 }
 
 void GraphView::useOpenGL(bool use)
@@ -462,4 +478,9 @@ void GraphView::useOpenGL(bool use)
 		setViewport(new OPENGL_WIDGET);
 	else
 		setViewport(new QWidget);
+}
+
+void GraphView::useAntiAliasing(bool use)
+{
+	setRenderHint(QPainter::Antialiasing, use);
 }

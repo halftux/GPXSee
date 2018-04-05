@@ -1,6 +1,8 @@
 #include <cmath>
 #include "config.h"
 #include "data.h"
+#include "tooltip.h"
+#include "elevationgraphitem.h"
 #include "elevationgraph.h"
 
 
@@ -42,11 +44,8 @@ ElevationGraph::ElevationGraph(QWidget *parent) : GraphTab(parent)
 	_showRoutes = true;
 	_showTracks = true;
 
-	_units = Metric;
-
-	setYUnits();
+	setYUnits(Metric);
 	setYLabel(tr("Elevation"));
-
 	setMinYRange(50.0);
 }
 
@@ -68,43 +67,25 @@ void ElevationGraph::setInfo()
 
 void ElevationGraph::loadGraph(const Graph &graph, Type type, PathItem *path)
 {
-	qreal ascent = 0, descent = 0;
-	qreal min, max;
-
 	if (graph.size() < 2) {
 		skipColor();
 		return;
 	}
 
-	max = min = graph.at(0).y();
-	for (int j = 1; j < graph.size(); j++) {
-		qreal cur = graph.at(j).y();
-		qreal prev = graph.at(j-1).y();
-
-		if (cur > prev)
-			ascent += cur - prev;
-		if (cur < prev)
-			descent += prev - cur;
-
-		if (cur < min)
-			min = cur;
-		if (cur > max)
-			max = cur;
-	}
+	ElevationGraphItem *gi = new ElevationGraphItem(graph, _graphType);
+	GraphView::addGraph(gi, path, type);
 
 	if (type == Track) {
-		_trackAscent += ascent;
-		_trackDescent += descent;
-		_trackMax = nMax(_trackMax, max);
-		_trackMin = nMin(_trackMin, min);
+		_trackAscent += gi->ascent();
+		_trackDescent += gi->descent();
+		_trackMax = nMax(_trackMax, gi->max());
+		_trackMin = nMin(_trackMin, gi->min());
 	} else {
-		_routeAscent += ascent;
-		_routeDescent += descent;
-		_routeMax = nMax(_routeMax, max);
-		_routeMin = nMin(_routeMin, min);
+		_routeAscent += gi->ascent();
+		_routeDescent += gi->descent();
+		_routeMax = nMax(_routeMax, gi->max());
+		_routeMin = nMin(_routeMin, gi->min());
 	}
-
-	GraphView::loadGraph(graph, path, type);
 }
 
 void ElevationGraph::loadData(const Data &data, const QList<PathItem *> &paths)
@@ -135,9 +116,9 @@ void ElevationGraph::clear()
 	GraphView::clear();
 }
 
-void ElevationGraph::setYUnits()
+void ElevationGraph::setYUnits(Units units)
 {
-	if (_units == Metric) {
+	if (units == Metric) {
 		GraphView::setYUnits(tr("m"));
 		setYScale(1);
 	} else {
@@ -146,15 +127,12 @@ void ElevationGraph::setYUnits()
 	}
 }
 
-void ElevationGraph::setUnits(enum Units units)
+void ElevationGraph::setUnits(Units units)
 {
-	_units = units;
-
-	setYUnits();
+	setYUnits(units);
 	setInfo();
-	GraphView::setUnits(units);
 
-	redraw();
+	GraphView::setUnits(units);
 }
 
 void ElevationGraph::showTracks(bool show)

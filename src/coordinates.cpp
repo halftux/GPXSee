@@ -21,8 +21,7 @@ QDebug operator<<(QDebug dbg, const Coordinates &coordinates)
 {
 	dbg.nospace() << "Coordinates(" << coordinates.lon() << ", "
 	  << coordinates.lat() << ")";
-
-	return dbg.maybeSpace();
+	return dbg.space();
 }
 
 QPair<Coordinates, Coordinates> Coordinates::boundingRect(qreal distance) const

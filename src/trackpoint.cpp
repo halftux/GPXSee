@@ -6,6 +6,5 @@ QDebug operator<<(QDebug dbg, const Trackpoint &trackpoint)
 	  << trackpoint.timestamp() << ", " << trackpoint.elevation() << ", "
 	  << trackpoint.speed() << ", " << trackpoint.heartRate() << ", "
 	  << trackpoint.temperature() << ")";
-
-	return dbg.maybeSpace();
+	return dbg.space();
 }

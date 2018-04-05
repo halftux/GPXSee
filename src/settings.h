@@ -31,6 +31,8 @@
 #define GRAPH_TYPE_DEFAULT                gtDistance
 #define SHOW_GRAPH_GRIDS_SETTING          "grid"
 #define SHOW_GRAPH_GRIDS_DEFAULT          true
+#define SHOW_GRAPH_SLIDER_INFO_SETTING    "sliderInfo"
+#define SHOW_GRAPH_SLIDER_INFO_DEFAULT    true
 
 #define MAP_SETTINGS_GROUP                "Map"
 #define CURRENT_MAP_SETTING               "map"
@@ -76,12 +78,18 @@
 #define EXPORT_FILENAME_SETTING           "fileName"
 #define EXPORT_FILENAME_DEFAULT           QString("%1/export.pdf"). \
                                             arg(QDir::currentPath())
+#define RESOLUTION_SETTING                "resolution"
+#define RESOLUTION_DEFAULT                600
 
 #define OPTIONS_SETTINGS_GROUP            "Options"
 #define PALETTE_COLOR_SETTING             "paletteColor"
 #define PALETTE_COLOR_DEFAULT             QColor(Qt::blue)
 #define PALETTE_SHIFT_SETTING             "paletteShift"
 #define PALETTE_SHIFT_DEFAULT             0.62
+#define MAP_OPACITY_SETTING               "mapOpacity"
+#define MAP_OPACITY_DEFAULT               100
+#define BACKGROUND_COLOR_SETTING          "backgroundColor"
+#define BACKGROUND_COLOR_DEFAULT          QColor(Qt::white)
 #define TRACK_WIDTH_SETTING               "trackWidth"
 #define TRACK_WIDTH_DEFAULT               3
 #define ROUTE_WIDTH_SETTING               "routeWidth"
@@ -90,6 +98,14 @@
 #define TRACK_STYLE_DEFAULT               Qt::SolidLine
 #define ROUTE_STYLE_SETTING               "routeStyle"
 #define ROUTE_STYLE_DEFAULT               Qt::DotLine
+#define WAYPOINT_SIZE_SETTING             "waypointSize"
+#define WAYPOINT_SIZE_DEFAULT             8
+#define WAYPOINT_COLOR_SETTING            "waypointColor"
+#define WAYPOINT_COLOR_DEFAULT            QColor(Qt::black)
+#define POI_SIZE_SETTING                  "poiSize"
+#define POI_SIZE_DEFAULT                  8
+#define POI_COLOR_SETTING                 "poiColor"
+#define POI_COLOR_DEFAULT                 QColor(Qt::black)
 #define GRAPH_WIDTH_SETTING               "graphWidth"
 #define GRAPH_WIDTH_DEFAULT               1
 #define PATH_AA_SETTING                   "pathAntiAliasing"
@@ -122,6 +138,8 @@
 #endif
 #define PIXMAP_CACHE_SETTING              "pixmapCache"
 #define PIXMAP_CACHE_DEFAULT              64 /* MB */
+#define HIRES_PRINT_SETTING               "hiresPrint"
+#define HIRES_PRINT_DEFAULT               false
 #define PRINT_NAME_SETTING                "printName"
 #define PRINT_NAME_DEFAULT                true
 #define PRINT_DATE_SETTING                "printDate"

@@ -25,7 +25,7 @@ private:
 	qreal ascent() const;
 	qreal descent() const;
 
-	void setYUnits();
+	void setYUnits(Units units);
 	void setInfo();
 
 	void loadGraph(const Graph &graph, Type type, PathItem *path);
@@ -35,7 +35,6 @@ private:
 	qreal _trackMax, _routeMax;
 	qreal _trackMin, _routeMin;
 
-	enum Units _units;
 	bool _showTracks, _showRoutes;
 };
 

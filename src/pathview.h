@@ -28,7 +28,6 @@ class PathView : public QGraphicsView
 
 public:
 	PathView(Map *map, POI *poi, QWidget *parent = 0);
-	~PathView();
 
 	QList<PathItem*> loadData(const Data &data);
 
@@ -37,7 +36,7 @@ public:
 	void setMap(Map *map);
 	void setUnits(enum Units units);
 
-	void plot(QPainter *painter, const QRectF &target);
+	void plot(QPainter *painter, const QRectF &target, qreal scale, bool hires);
 
 	int trackCount() const {return _tracks.count();}
 	int routeCount() const {return _routes.count();}
@@ -45,11 +44,23 @@ public:
 
 	void clear();
 
+	void setTrackWidth(int width);
+	void setRouteWidth(int width);
+	void setTrackStyle(Qt::PenStyle style);
+	void setRouteStyle(Qt::PenStyle style);
+	void setWaypointSize(int size);
+	void setWaypointColor(const QColor &color);
+	void setPOISize(int size);
+	void setPOIColor(const QColor &color);
+	void setMapOpacity(int opacity);
+	void setBackgroundColor(const QColor &color);
 	void useOpenGL(bool use);
+	void useAntiAliasing(bool use);
+#ifdef Q_WS_MAEMO_5
 	void setRescale(bool rescale);
+#endif
 
 public slots:
-	void redraw();
 #ifdef Q_WS_MAEMO_5
 	void zoom_maemo(QString direction);
 #endif
@@ -62,13 +73,11 @@ public slots:
 	void showRoutes(bool show);
 	void showWaypoints(bool show);
 	void showRouteWaypoints(bool show);
-	void setTrackWidth(int width);
-	void setRouteWidth(int width);
-	void setTrackStyle(Qt::PenStyle style);
-	void setRouteStyle(Qt::PenStyle style);
+	void clearMapCache();
 
 private slots:
 	void updatePOI();
+	void reloadMap();
 
 private:
 	PathItem *addTrack(const Track &track);
@@ -78,9 +87,10 @@ private:
 	void loadPOI();
 	void clearPOI();
 
-	qreal mapScale() const;
+	qreal mapZoom() const;
 	QPointF contentCenter() const;
 	void rescale();
+	void centerOn(const QPointF &pos);
 	void zoom(int zoom, const QPoint &pos, const Coordinates &c);
 	void digitalZoom(int zoom);
 	void resetDigitalZoom();
@@ -115,6 +125,8 @@ private:
 	Palette _palette;
 	Units _units;
 
+	qreal _opacity;
+	QColor _backgroundColor;
 	bool _showMap;
 	bool _showTracks;
 	bool _showRoutes;
@@ -128,6 +140,10 @@ private:
 	int _routeWidth;
 	Qt::PenStyle _trackStyle;
 	Qt::PenStyle _routeStyle;
+	int _waypointSize;
+	int _poiSize;
+	QColor _waypointColor;
+	QColor _poiColor;
 
 	int _digitalZoom;
 	bool _plot;

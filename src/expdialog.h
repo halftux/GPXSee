@@ -11,6 +11,7 @@ struct Export {
 	QPrinter::PaperSize paperSize;
 	QPrinter::Orientation orientation;
 	MarginsF margins;
+	int resolution;
 	Units units;
 };
 

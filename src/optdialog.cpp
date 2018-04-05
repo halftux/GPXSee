@@ -12,10 +12,24 @@ optDialog::optDialog(Options *options, QWidget *parent) :
 	this->setWindowFlags(Qt::Window);
 #endif
 	this->showFullScreen();
-
+	QString buttoncolor;
+	ui->horizontalSlider_mapopacity->setValue(_options->mapOpacity);
+	buttoncolor = QString("QPushButton { background-color: %1; border: 1px solid white; }").arg(_options->backgroundColor.name());
+	_backgroundColor=_options->backgroundColor;
+	ui->pushButton_bcolor_map->setStyleSheet(buttoncolor);
+	ui->spinBox_size_waypoints->setMinimum(1);
+	ui->spinBox_size_waypoints->setValue(_options->waypointSize);
+	buttoncolor = QString("QPushButton { background-color: %1; border: 1px solid white; }").arg(_options->waypointColor.name());
+	_waypointColor=_options->waypointColor;
+	ui->pushButton_color_waypoints->setStyleSheet(buttoncolor);
+	ui->spinBox_size_pois->setMinimum(1);
+	ui->spinBox_size_pois->setValue(_options->poiSize);
+	buttoncolor = QString("QPushButton { background-color: %1; border: 1px solid white; }").arg(_options->poiColor.name());
+	_poiColor = _options->poiColor;
+	ui->pushButton_color_pois->setStyleSheet(buttoncolor);
 	_baseColor=_options->palette.color();
-	QString bgc = QString("background-color: %1").arg(_options->palette.color().name());
-	ui->pushButton_color_base->setStyleSheet(bgc);
+	buttoncolor = QString("QPushButton { background-color: %1; border: 1px solid white; }").arg(_options->palette.color().name());
+	ui->pushButton_color_base->setStyleSheet(buttoncolor);
 	ui->spinBox_path_trwidth->setValue(_options->trackWidth);
 	ui->spinBox_path_trwidth->setMinimum(1);
 	ui->comboBox_path_trstyle->setValue(_options->trackStyle);
@@ -82,6 +96,11 @@ optDialog::optDialog(Options *options, QWidget *parent) :
 	ui->spinBox_pixmapCache->setSuffix(UNIT_SPACE + tr("MB"));
 	ui->spinBox_pixmapCache->setValue(_options->pixmapCache);
 
+	if (_options->hiresPrint)
+		ui->radioButton_print_highres->setChecked(true);
+	else
+		ui->radioButton_print_wysiwyg->setChecked(true);
+
 }
 
 optDialog::~optDialog()
@@ -91,6 +110,13 @@ optDialog::~optDialog()
 void optDialog::accept()
 {
 	_options->palette.setColor(_baseColor);
+	_options->mapOpacity = ui->horizontalSlider_mapopacity->value();
+	_options->backgroundColor=_backgroundColor;
+	_options->waypointSize=ui->spinBox_size_waypoints->value();
+	_options->waypointColor=_waypointColor;
+	_options->poiSize=ui->spinBox_size_pois->value();
+	_options->poiColor=_poiColor;
+
 	_options->palette.setShift(ui->doubleSpinBox_color_pshift->value());
 	_options->trackWidth = ui->spinBox_path_trwidth->value();
 	_options->trackStyle = (Qt::PenStyle) ui->comboBox_path_trstyle->itemData(
@@ -129,6 +155,7 @@ void optDialog::accept()
 	_options->printMovingTime = ui->checkBox_exp_movingtime->isChecked();
 	_options->printItemCount = ui->checkBox_exp_itemcount->isChecked();
 	_options->separateGraphPage = ui->checkBox_exp_separate->isChecked();
+	_options->hiresPrint = ui->radioButton_print_highres->isChecked();
 
 	QDialog::accept();
 }
@@ -141,9 +168,51 @@ void optDialog::on_pushButton_color_base_clicked()
 
 	//QColor color = QColorDialog::getColor(_baseColor, this, QString(), QColorDialog::ShowAlphaChannel);
 	if (color.isValid()) {
-		QString bgc = QString("background-color: %1").arg(color.name());
+		QString bgc = QString("QPushButton { background-color: %1; border: 1px solid white; }").arg(color.name());
 		ui->pushButton_color_base->setStyleSheet(bgc);
 		_baseColor=color;
 		//emit colorChanged(_color);
+	}
+}
+
+void optDialog::on_pushButton_color_waypoints_clicked()
+{
+	QColorDialog cdialog;
+	cdialog.setOption( QColorDialog::ShowAlphaChannel, false );
+	QColor color = cdialog.getColor( _waypointColor, this );
+
+	if (color.isValid())
+	{
+		QString bgc = QString("QPushButton { background-color: %1; border: 1px solid white; }").arg(color.name());
+		ui->pushButton_color_waypoints->setStyleSheet(bgc);
+		_waypointColor=color;
+	}
+}
+
+void optDialog::on_pushButton_color_pois_clicked()
+{
+	QColorDialog cdialog;
+	cdialog.setOption( QColorDialog::ShowAlphaChannel, false );
+	QColor color = cdialog.getColor( _poiColor, this );
+
+	if (color.isValid())
+	{
+		QString bgc = QString("QPushButton { background-color: %1; border: 1px solid white; }").arg(color.name());
+		ui->pushButton_color_pois->setStyleSheet(bgc);
+		_poiColor=color;
+	}
+}
+
+void optDialog::on_pushButton_bcolor_map_clicked()
+{
+	QColorDialog cdialog;
+	cdialog.setOption( QColorDialog::ShowAlphaChannel, false );
+	QColor color = cdialog.getColor( _backgroundColor, this );
+
+	if (color.isValid())
+	{
+		QString bgc = QString("QPushButton { background-color: %1; border: 1px solid white; }").arg(color.name());
+		ui->pushButton_bcolor_map->setStyleSheet(bgc);
+		_backgroundColor=color;
 	}
 }

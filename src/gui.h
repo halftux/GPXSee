@@ -66,12 +66,12 @@ private slots:
 	void closePOIFiles();
 	void showGraphs(bool show);
 	void showGraphGrids(bool show);
+	void showGraphSliderInfo(bool show);
 	void showToolbars(bool show);
 	void showFullscreen(bool show);
 	void showTracks(bool show);
 	void showRoutes(bool show);
 	void loadMap();
-	void clearMapCache();
 	void nextMap();
 	void prevMap();
 	void openOptions();
@@ -146,8 +146,6 @@ private:
 	void readSettings();
 	void writeSettings();
 
-	const QString fileFormats() const;
-
 	void keyPressEvent(QKeyEvent *event);
 	void closeEvent(QCloseEvent *event);
 	void dragEnterEvent(QDragEnterEvent *event);
@@ -183,6 +181,7 @@ private:
 	QAction *_clearMapCacheAction;
 	QAction *_showGraphsAction;
 	QAction *_showGraphGridAction;
+	QAction *_showGraphSliderInfoAction;
 	QAction *_distanceGraphAction;
 	QAction *_timeGraphAction;
 	QAction *_showToolbarsAction;

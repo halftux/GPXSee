@@ -51,74 +51,6 @@
          <property name="currentIndex">
           <number>0</number>
          </property>
-         <widget class="QWidget" name="tab_color">
-          <attribute name="title">
-           <string>Colors</string>
-          </attribute>
-          <layout class="QVBoxLayout" name="verticalLayout_5">
-           <property name="leftMargin">
-            <number>4</number>
-           </property>
-           <property name="rightMargin">
-            <number>4</number>
-           </property>
-           <property name="bottomMargin">
-            <number>4</number>
-           </property>
-           <item>
-            <layout class="QFormLayout" name="formLayout">
-             <property name="margin">
-              <number>3</number>
-             </property>
-             <item row="1" column="0">
-              <widget class="QLabel" name="label_bcolor">
-               <property name="text">
-                <string>Base color:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="label_pshift">
-               <property name="text">
-                <string>Palette shift:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <layout class="QHBoxLayout" name="horizontalLayout">
-               <item>
-                <widget class="QDoubleSpinBox" name="doubleSpinBox_color_pshift"/>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-              </layout>
-             </item>
-             <item row="1" column="1">
-              <layout class="QHBoxLayout" name="horizontalLayout_2">
-               <item>
-                <widget class="QPushButton" name="pushButton_color_base">
-                 <property name="text">
-                  <string>Color</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
-            </layout>
-           </item>
-          </layout>
-         </widget>
          <widget class="QWidget" name="tab_path">
           <attribute name="title">
            <string>Path</string>
@@ -141,107 +73,287 @@
                 <height>416</height>
                </rect>
               </property>
-              <layout class="QVBoxLayout" name="verticalLayout_8">
-               <property name="margin">
-                <number>0</number>
+              <layout class="QVBoxLayout" name="verticalLayout_22">
+               <item>
+                <widget class="QGroupBox" name="groupBox_pathcolor">
+                 <property name="title">
+                  <string>Color</string>
+                 </property>
+                 <layout class="QFormLayout" name="formLayout_2">
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="label_bcolor">
+                    <property name="text">
+                     <string>Base color:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QPushButton" name="pushButton_color_base">
+                    <property name="text">
+                     <string>Color</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_pshift">
+                    <property name="text">
+                     <string>Palette shift:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <layout class="QHBoxLayout" name="horizontalLayout">
+                    <item>
+                     <widget class="QDoubleSpinBox" name="doubleSpinBox_color_pshift"/>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer">
+                      <property name="orientation">
+                       <enum>Qt::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="groupBox_pathtrack">
+                 <property name="title">
+                  <string>Track</string>
+                 </property>
+                 <layout class="QFormLayout" name="formLayout_10">
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="label_3">
+                    <property name="text">
+                     <string>Track width:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <layout class="QHBoxLayout" name="horizontalLayout_3">
+                    <item>
+                     <widget class="QSpinBox" name="spinBox_path_trwidth"/>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer_3">
+                      <property name="orientation">
+                       <enum>Qt::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_4">
+                    <property name="text">
+                     <string>Track style:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="StyleComboBox" name="comboBox_path_trstyle"/>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="groupBox_pathroute">
+                 <property name="title">
+                  <string>Route</string>
+                 </property>
+                 <layout class="QFormLayout" name="formLayout_11">
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="label_5">
+                    <property name="text">
+                     <string>Route width:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <layout class="QHBoxLayout" name="horizontalLayout_4">
+                    <item>
+                     <widget class="QSpinBox" name="spinBox_path_rwidth"/>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer_4">
+                      <property name="orientation">
+                       <enum>Qt::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_6">
+                    <property name="text">
+                     <string>Route style:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <widget class="StyleComboBox" name="comboBox_path_rstyle"/>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="checkBox_path_antia">
+                 <property name="text">
+                  <string>Use anti-aliasing</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="tab_points">
+          <attribute name="title">
+           <string>Points</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_6">
+           <property name="margin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QScrollArea" name="scrollArea_3">
+             <property name="widgetResizable">
+              <bool>true</bool>
+             </property>
+             <widget class="QWidget" name="scrollAreaWidgetContents_3">
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>0</y>
+                <width>592</width>
+                <height>416</height>
+               </rect>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_5">
+               <property name="leftMargin">
+                <number>9</number>
                </property>
                <item>
-                <layout class="QVBoxLayout" name="verticalLayout_6">
-                 <property name="margin">
-                  <number>4</number>
+                <widget class="QGroupBox" name="groupBox_waypoints">
+                 <property name="title">
+                  <string>Waypoints</string>
                  </property>
-                 <item>
-                  <layout class="QFormLayout" name="formLayout_2">
-                   <property name="fieldGrowthPolicy">
-                    <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
-                   </property>
-                   <property name="margin">
-                    <number>4</number>
-                   </property>
-                   <item row="0" column="0">
-                    <widget class="QLabel" name="label_3">
-                     <property name="text">
-                      <string>Track width:</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="0" column="1">
-                    <layout class="QHBoxLayout" name="horizontalLayout_3">
-                     <item>
-                      <widget class="QSpinBox" name="spinBox_path_trwidth"/>
-                     </item>
-                     <item>
-                      <spacer name="horizontalSpacer_3">
-                       <property name="orientation">
-                        <enum>Qt::Horizontal</enum>
-                       </property>
-                       <property name="sizeHint" stdset="0">
-                        <size>
-                         <width>40</width>
-                         <height>20</height>
-                        </size>
-                       </property>
-                      </spacer>
-                     </item>
-                    </layout>
-                   </item>
-                   <item row="3" column="0">
-                    <widget class="QLabel" name="label_5">
-                     <property name="text">
-                      <string>Route width:</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="3" column="1">
-                    <layout class="QHBoxLayout" name="horizontalLayout_4">
-                     <item>
-                      <widget class="QSpinBox" name="spinBox_path_rwidth"/>
-                     </item>
-                     <item>
-                      <spacer name="horizontalSpacer_4">
-                       <property name="orientation">
-                        <enum>Qt::Horizontal</enum>
-                       </property>
-                       <property name="sizeHint" stdset="0">
-                        <size>
-                         <width>40</width>
-                         <height>20</height>
-                        </size>
-                       </property>
-                      </spacer>
-                     </item>
-                    </layout>
-                   </item>
-                   <item row="6" column="0">
-                    <widget class="QLabel" name="label_6">
-                     <property name="text">
-                      <string>Route style:</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="6" column="1">
-                    <widget class="StyleComboBox" name="comboBox_path_rstyle"/>
-                   </item>
-                   <item row="1" column="1">
-                    <widget class="StyleComboBox" name="comboBox_path_trstyle"/>
-                   </item>
-                   <item row="1" column="0">
-                    <widget class="QLabel" name="label_4">
-                     <property name="text">
-                      <string>Track style:</string>
-                     </property>
-                    </widget>
-                   </item>
-                  </layout>
-                 </item>
-                 <item>
-                  <widget class="QCheckBox" name="checkBox_path_antia">
-                   <property name="text">
-                    <string>Use anti-aliasing</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                 <layout class="QFormLayout" name="formLayout">
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="label_waycolor">
+                    <property name="text">
+                     <string>Color:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QPushButton" name="pushButton_color_waypoints">
+                    <property name="text">
+                     <string>Color</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_size_waypoints">
+                    <property name="text">
+                     <string>Size:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <layout class="QHBoxLayout" name="horizontalLayout_7">
+                    <item>
+                     <widget class="QSpinBox" name="spinBox_size_waypoints"/>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer_7">
+                      <property name="orientation">
+                       <enum>Qt::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="groupBox_pois">
+                 <property name="title">
+                  <string>POIs</string>
+                 </property>
+                 <layout class="QFormLayout" name="formLayout_8">
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="label_waycolor_2">
+                    <property name="text">
+                     <string>Color:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QPushButton" name="pushButton_color_pois">
+                    <property name="text">
+                     <string>Color</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_size_pois">
+                    <property name="text">
+                     <string>Size:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="1">
+                   <layout class="QHBoxLayout" name="horizontalLayout_8">
+                    <item>
+                     <widget class="QSpinBox" name="spinBox_size_pois"/>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer_8">
+                      <property name="orientation">
+                       <enum>Qt::Horizontal</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </widget>
                </item>
               </layout>
              </widget>
@@ -320,6 +432,59 @@
            </item>
           </layout>
          </widget>
+         <widget class="QWidget" name="tab_map">
+          <attribute name="title">
+           <string>Map</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_8">
+           <property name="margin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QScrollArea" name="scrollArea_4">
+             <property name="widgetResizable">
+              <bool>true</bool>
+             </property>
+             <widget class="QWidget" name="scrollAreaWidgetContents_4">
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>0</y>
+                <width>592</width>
+                <height>416</height>
+               </rect>
+              </property>
+              <layout class="QFormLayout" name="formLayout_9">
+               <item row="1" column="1">
+                <widget class="QPushButton" name="pushButton_bcolor_map">
+                 <property name="text">
+                  <string>Color</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="label">
+                 <property name="text">
+                  <string>Map opacity:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="PercentSlider" name="horizontalSlider_mapopacity"/>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="label_bcolor_map">
+                 <property name="text">
+                  <string>Background color:</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </widget>
+           </item>
+          </layout>
+         </widget>
         </widget>
        </item>
       </layout>
@@ -347,7 +512,7 @@
           </attribute>
           <layout class="QVBoxLayout" name="verticalLayout_20">
            <property name="margin">
-            <number>6</number>
+            <number>0</number>
            </property>
            <item>
             <widget class="QScrollArea" name="scrollArea_2">
@@ -359,14 +524,11 @@
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>580</width>
-                <height>404</height>
+                <width>592</width>
+                <height>416</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_18">
-               <property name="margin">
-                <number>0</number>
-               </property>
                <item>
                 <layout class="QFormLayout" name="formLayout_5">
                  <property name="verticalSpacing">
@@ -555,6 +717,36 @@
          <property name="currentIndex">
           <number>0</number>
          </property>
+         <widget class="QWidget" name="tab_printmode">
+          <attribute name="title">
+           <string>Print Mode</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_21">
+           <item>
+            <widget class="QRadioButton" name="radioButton_print_wysiwyg">
+             <property name="text">
+              <string>WYSIWYG</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+             <attribute name="buttonGroup">
+              <string>buttonGroup_printmode</string>
+             </attribute>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="radioButton_print_highres">
+             <property name="text">
+              <string>High-Resolution</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string>buttonGroup_printmode</string>
+             </attribute>
+            </widget>
+           </item>
+          </layout>
+         </widget>
          <widget class="QWidget" name="tab_header">
           <attribute name="title">
            <string>Header</string>
@@ -728,6 +920,11 @@
    <extends>QComboBox</extends>
    <header>src/stylecombobox.h</header>
   </customwidget>
+  <customwidget>
+   <class>PercentSlider</class>
+   <extends>QSlider</extends>
+   <header location="global">src/percentslider.h</header>
+  </customwidget>
  </customwidgets>
  <resources>
   <include location="../gpxsee.qrc"/>
@@ -766,4 +963,7 @@
    </hints>
   </connection>
  </connections>
+ <buttongroups>
+  <buttongroup name="buttonGroup_printmode"/>
+ </buttongroups>
 </ui>

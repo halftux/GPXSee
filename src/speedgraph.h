@@ -14,20 +14,19 @@ public:
 	QString label() const {return tr("Speed");}
 	void loadData(const Data &data, const QList<PathItem *> &paths);
 	void clear();
-	void setUnits(enum Units units);
-	void setTimeType(enum TimeType type);
+	void setUnits(Units units);
+	void setTimeType(TimeType type);
 	void showTracks(bool show);
 
 private:
 	qreal avg() const;
 	qreal max() const {return bounds().bottom();}
-	void setYUnits();
+	void setYUnits(Units units);
 	void setInfo();
 
 	QList<QPointF> _avg;
-	QList<QPointF> _avgM;
+	QList<QPointF> _mavg;
 
-	enum Units _units;
 	enum TimeType _timeType;
 	bool _showTracks;
 };

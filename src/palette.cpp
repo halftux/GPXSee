@@ -41,6 +41,5 @@ QDebug operator<<(QDebug dbg, const Palette &palette)
 {
 	dbg.nospace() << "Palette(" << palette.color() << ", " << palette.shift()
 	  << ")";
-
-	return dbg.maybeSpace();
+	return dbg.space();
 }

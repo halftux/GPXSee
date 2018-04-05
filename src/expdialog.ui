@@ -27,7 +27,7 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>798</width>
+        <width>796</width>
         <height>443</height>
        </rect>
       </property>
@@ -55,14 +55,14 @@
          <item row="0" column="1">
           <widget class="QComboBox" name="comboBox_pagesize"/>
          </item>
-         <item row="1" column="0">
+         <item row="2" column="0">
           <widget class="QLabel" name="label_3">
            <property name="text">
             <string>Orientation:</string>
            </property>
           </widget>
          </item>
-         <item row="1" column="1">
+         <item row="2" column="1">
           <layout class="QHBoxLayout" name="horizontalLayout_2">
            <item>
             <widget class="QRadioButton" name="radioButton_portrait">
@@ -86,12 +86,22 @@
            </item>
           </layout>
          </item>
-         <item row="2" column="0">
+         <item row="3" column="0">
           <widget class="QLabel" name="label_4">
            <property name="text">
             <string>Margins:</string>
            </property>
           </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_6">
+           <property name="text">
+            <string>Resolution:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QComboBox" name="comboBox_resolution"/>
          </item>
         </layout>
        </item>

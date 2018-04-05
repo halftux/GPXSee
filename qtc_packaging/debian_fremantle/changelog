@@ -1,3 +1,13 @@
+gpxsee (0.4.16maemo1) unstable; urgency=low
+  * merged with upstream 4.16
+
+ -- Christian Weniger <less_to_space@web.de>  Sun, 01 Apr 2018 19:20:14 +0100
+ 
+gpxsee (0.4.9maemo1) unstable; urgency=low
+  * merged with upstream 4.9
+
+ -- Christian Weniger <less_to_space@web.de>  Mon, 17 Jul 2017 20:27:14 +0100
+ 
 gpxsee (0.4.1maemo1) unstable; urgency=low
   * merged with upstream 4.1
   * pdf export process indicator

@@ -59,5 +59,5 @@ void RectC::unite(const Coordinates &c)
 QDebug operator<<(QDebug dbg, const RectC &rect)
 {
 	dbg.nospace() << "RectC(" << rect.topLeft() << ", " << rect.size() << ")";
-	return dbg.maybeSpace();
+	return dbg.space();
 }

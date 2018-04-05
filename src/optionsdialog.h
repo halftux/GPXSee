@@ -12,6 +12,8 @@ class QSpinBox;
 class QDoubleSpinBox;
 class QComboBox;
 class QCheckBox;
+class QRadioButton;
+class PercentSlider;
 
 struct Options {
 	// Appearance
@@ -20,9 +22,15 @@ struct Options {
 	int routeWidth;
 	Qt::PenStyle trackStyle;
 	Qt::PenStyle routeStyle;
+	QColor waypointColor;
+	QColor poiColor;
+	int waypointSize;
+	int poiSize;
 	int graphWidth;
 	bool pathAntiAliasing;
 	bool graphAntiAliasing;
+	int mapOpacity;
+	QColor backgroundColor;
 	// Data
 	int elevationFilter;
 	int speedFilter;
@@ -38,6 +46,7 @@ struct Options {
 	bool useOpenGL;
 	int pixmapCache;
 	// Print/Export
+	bool hiresPrint;
 	bool printName;
 	bool printDate;
 	bool printDistance;
@@ -71,11 +80,17 @@ private:
 	// Appearance
 	ColorBox *_baseColor;
 	QDoubleSpinBox *_colorOffset;
+	PercentSlider *_mapOpacity;
+	ColorBox *_backgroundColor;
 	QSpinBox *_trackWidth;
 	StyleComboBox *_trackStyle;
 	QSpinBox *_routeWidth;
 	StyleComboBox *_routeStyle;
 	QCheckBox *_pathAA;
+	QSpinBox *_waypointSize;
+	ColorBox *_waypointColor;
+	QSpinBox *_poiSize;
+	ColorBox *_poiColor;
 	QSpinBox *_graphWidth;
 	QCheckBox *_graphAA;
 	// Data
@@ -93,6 +108,8 @@ private:
 	QSpinBox *_pixmapCache;
 	QCheckBox *_useOpenGL;
 	// Print/Export
+	QRadioButton *_wysiwyg;
+	QRadioButton *_hires;
 	QCheckBox *_name;
 	QCheckBox *_date;
 	QCheckBox *_distance;
