@@ -1,0 +1,884 @@
+#include <QGraphicsView>
+#include <QGraphicsScene>
+#include <QWheelEvent>
+#include <QApplication>
+#include <QPixmapCache>
+#include <QScrollBar>
+#include "data/poi.h"
+#include "data/data.h"
+#include "map/map.h"
+#include "opengl.h"
+#include "trackitem.h"
+#include "routeitem.h"
+#include "waypointitem.h"
+#include "scaleitem.h"
+#include "keys.h"
+#include "mapview.h"
+
+
+#define MAX_DIGITAL_ZOOM 2
+#define MIN_DIGITAL_ZOOM -3
+#define MARGIN           10.0
+#define SCALE_OFFSET     7
+
+MapView::MapView(Map *map, POI *poi, QWidget *parent)
+  : QGraphicsView(parent)
+{
+	Q_ASSERT(map != 0);
+	Q_ASSERT(poi != 0);
+
+	_scene = new QGraphicsScene(this);
+	setScene(_scene);
+	setCacheMode(QGraphicsView::CacheBackground);
+	setDragMode(QGraphicsView::ScrollHandDrag);
+	setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+	setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	setRenderHint(QPainter::Antialiasing, true);
+	setAcceptDrops(false);
+
+	_mapScale = new ScaleItem();
+	_mapScale->setZValue(2.0);
+	_scene->addItem(_mapScale);
+
+	_map = map;
+	_map->load();
+	connect(_map, SIGNAL(loaded()), this, SLOT(reloadMap()));
+
+	_poi = poi;
+	connect(_poi, SIGNAL(pointsChanged()), this, SLOT(updatePOI()));
+
+	_units = Metric;
+	_coordinatesFormat = DecimalDegrees;
+	_opacity = 1.0;
+	_backgroundColor = Qt::white;
+	_markerColor = Qt::red;
+
+	_showMap = true;
+	_showTracks = true;
+	_showRoutes = true;
+	_showWaypoints = true;
+	_showWaypointLabels = true;
+	_showPOI = true;
+	_showPOILabels = true;
+	_overlapPOIs = true;
+	_showRouteWaypoints = true;
+	_trackWidth = 3;
+	_routeWidth = 3;
+	_trackStyle = Qt::SolidLine;
+	_routeStyle = Qt::DashLine;
+	_waypointSize = 8;
+	_waypointColor = Qt::black;
+	_poiSize = 8;
+	_poiColor = Qt::black;
+
+	_plot = false;
+	_digitalZoom = 0;
+
+	_map->setBackgroundColor(_backgroundColor);
+	_res = _map->resolution(_map->bounds());
+	_scene->setSceneRect(_map->bounds());
+
+	centerOn(_scene->sceneRect().center());
+}
+
+void MapView::centerOn(const QPointF &pos)
+{
+	QGraphicsView::centerOn(pos);
+	QRectF vr(mapToScene(viewport()->rect()).boundingRect());
+	_res = _map->resolution(vr);
+	_mapScale->setResolution(_res);
+}
+
+PathItem *MapView::addTrack(const Track &track)
+{
+	if (track.isNull()) {
+		_palette.nextColor();
+		return 0;
+	}
+
+	TrackItem *ti = new TrackItem(track, _map);
+	_tracks.append(ti);
+	_tr |= ti->path().boundingRect();
+	ti->setColor(_palette.nextColor());
+	ti->setWidth(_trackWidth);
+	ti->setStyle(_trackStyle);
+	ti->setUnits(_units);
+	ti->setVisible(_showTracks);
+	ti->setDigitalZoom(_digitalZoom);
+	ti->setMarkerColor(_markerColor);
+	_scene->addItem(ti);
+
+	if (_showTracks)
+		addPOI(_poi->points(ti->path()));
+
+	return ti;
+}
+
+PathItem *MapView::addRoute(const Route &route)
+{
+	if (route.isNull()) {
+		_palette.nextColor();
+		return 0;
+	}
+
+	RouteItem *ri = new RouteItem(route, _map);
+	_routes.append(ri);
+	_rr |= ri->path().boundingRect();
+	ri->setColor(_palette.nextColor());
+	ri->setWidth(_routeWidth);
+	ri->setStyle(_routeStyle);
+	ri->setUnits(_units);
+	ri->setCoordinatesFormat(_coordinatesFormat);
+	ri->setVisible(_showRoutes);
+	ri->showWaypoints(_showRouteWaypoints);
+	ri->showWaypointLabels(_showWaypointLabels);
+	ri->setDigitalZoom(_digitalZoom);
+	ri->setMarkerColor(_markerColor);
+	_scene->addItem(ri);
+
+	if (_showRoutes)
+		addPOI(_poi->points(ri->path()));
+
+	return ri;
+}
+
+void MapView::addWaypoints(const QList<Waypoint> &waypoints)
+{
+	for (int i = 0; i < waypoints.count(); i++) {
+		const Waypoint &w = waypoints.at(i);
+
+		WaypointItem *wi = new WaypointItem(w, _map);
+		_waypoints.append(wi);
+		_wr.unite(wi->waypoint().coordinates());
+		wi->setZValue(1);
+		wi->setSize(_waypointSize);
+		wi->setColor(_waypointColor);
+		wi->showLabel(_showWaypointLabels);
+		wi->setToolTipFormat(_units, _coordinatesFormat);
+		wi->setVisible(_showWaypoints);
+		wi->setDigitalZoom(_digitalZoom);
+		_scene->addItem(wi);
+
+		if (_showWaypoints)
+			addPOI(_poi->points(w));
+	}
+}
+
+QList<PathItem *> MapView::loadData(const Data &data)
+{
+	QList<PathItem *> paths;
+	int zoom = _map->zoom();
+
+	for (int i = 0; i < data.tracks().count(); i++)
+		paths.append(addTrack(*(data.tracks().at(i))));
+	for (int i = 0; i < data.routes().count(); i++)
+		paths.append(addRoute(*(data.routes().at(i))));
+	addWaypoints(data.waypoints());
+
+	if (_tracks.empty() && _routes.empty() && _waypoints.empty())
+		return paths;
+
+	if (fitMapZoom() != zoom)
+		rescale();
+	else
+		updatePOIVisibility();
+
+	centerOn(contentCenter());
+
+	return paths;
+}
+
+int MapView::fitMapZoom() const
+{
+	RectC br = _tr | _rr | _wr;
+
+	return _map->zoomFit(viewport()->size() - QSize(2*MARGIN, 2*MARGIN),
+	  br.isNull() ? RectC(_map->xy2ll(_map->bounds().topLeft()),
+	  _map->xy2ll(_map->bounds().bottomRight())) : br);
+}
+
+QPointF MapView::contentCenter() const
+{
+	RectC br = _tr | _rr | _wr;
+
+	return br.isNull() ? sceneRect().center() : _map->ll2xy(br.center());
+}
+
+void MapView::updatePOIVisibility()
+{
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it, jt;
+
+	if (!_showPOI)
+		return;
+
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->show();
+
+	if (!_overlapPOIs) {
+		for (it = _pois.constBegin(); it != _pois.constEnd(); it++) {
+			for (jt = _pois.constBegin(); jt != _pois.constEnd(); jt++) {
+				if (it.value()->isVisible() && jt.value()->isVisible()
+				  && it != jt && it.value()->collidesWithItem(jt.value()))
+					jt.value()->hide();
+			}
+		}
+	}
+}
+
+void MapView::rescale()
+{
+	_scene->setSceneRect(_map->bounds());
+	resetCachedContent();
+
+	for (int i = 0; i < _tracks.size(); i++)
+		_tracks.at(i)->setMap(_map);
+	for (int i = 0; i < _routes.size(); i++)
+		_routes.at(i)->setMap(_map);
+	for (int i = 0; i < _waypoints.size(); i++)
+		_waypoints.at(i)->setMap(_map);
+
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setMap(_map);
+
+	updatePOIVisibility();
+}
+
+void MapView::setPalette(const Palette &palette)
+{
+	_palette = palette;
+	_palette.reset();
+
+	for (int i = 0; i < _tracks.count(); i++)
+		_tracks.at(i)->setColor(_palette.nextColor());
+	for (int i = 0; i < _routes.count(); i++)
+		_routes.at(i)->setColor(_palette.nextColor());
+}
+
+void MapView::setMap(Map *map)
+{
+	QRectF vr(mapToScene(viewport()->rect()).boundingRect()
+	  .intersected(_map->bounds()));
+	RectC cr(_map->xy2ll(vr.topLeft()), _map->xy2ll(vr.bottomRight()));
+
+	_map->unload();
+	disconnect(_map, SIGNAL(loaded()), this, SLOT(reloadMap()));
+
+	_map = map;
+	_map->load();
+	_map->setBackgroundColor(_backgroundColor);
+	connect(_map, SIGNAL(loaded()), this, SLOT(reloadMap()));
+
+	digitalZoom(0);
+
+	_map->zoomFit(viewport()->rect().size(), cr);
+	_scene->setSceneRect(_map->bounds());
+
+	for (int i = 0; i < _tracks.size(); i++)
+		_tracks.at(i)->setMap(map);
+	for (int i = 0; i < _routes.size(); i++)
+		_routes.at(i)->setMap(map);
+	for (int i = 0; i < _waypoints.size(); i++)
+		_waypoints.at(i)->setMap(map);
+
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setMap(_map);
+	updatePOIVisibility();
+
+	centerOn(_map->ll2xy(cr.center()));
+
+	resetCachedContent();
+	QPixmapCache::clear();
+}
+
+void MapView::setPOI(POI *poi)
+{
+	disconnect(_poi, SIGNAL(pointsChanged()), this, SLOT(updatePOI()));
+	connect(poi, SIGNAL(pointsChanged()), this, SLOT(updatePOI()));
+
+	_poi = poi;
+
+	updatePOI();
+}
+
+void MapView::updatePOI()
+{
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++) {
+		_scene->removeItem(it.value());
+		delete it.value();
+	}
+	_pois.clear();
+
+	if (_showTracks)
+		for (int i = 0; i < _tracks.size(); i++)
+			addPOI(_poi->points(_tracks.at(i)->path()));
+	if (_showRoutes)
+		for (int i = 0; i < _routes.size(); i++)
+			addPOI(_poi->points(_routes.at(i)->path()));
+	if (_showWaypoints)
+		for (int i = 0; i< _waypoints.size(); i++)
+			addPOI(_poi->points(_waypoints.at(i)->waypoint()));
+
+	updatePOIVisibility();
+}
+
+void MapView::addPOI(const QList<Waypoint> &waypoints)
+{
+	for (int i = 0; i < waypoints.size(); i++) {
+		const Waypoint &w = waypoints.at(i);
+
+		if (_pois.contains(SearchPointer<Waypoint>(&w)))
+			continue;
+
+		WaypointItem *pi = new WaypointItem(w, _map);
+		pi->setZValue(1);
+		pi->setSize(_poiSize);
+		pi->setColor(_poiColor);
+		pi->showLabel(_showPOILabels);
+		pi->setVisible(_showPOI);
+		pi->setDigitalZoom(_digitalZoom);
+		pi->setToolTipFormat(_units, _coordinatesFormat);
+		_scene->addItem(pi);
+
+		_pois.insert(SearchPointer<Waypoint>(&(pi->waypoint())), pi);
+	}
+}
+
+void MapView::setUnits(Units units)
+{
+	if (_units == units)
+		return;
+
+	_units = units;
+
+	_mapScale->setUnits(_units);
+
+	for (int i = 0; i < _tracks.count(); i++)
+		_tracks[i]->setUnits(_units);
+	for (int i = 0; i < _routes.count(); i++)
+		_routes[i]->setUnits(_units);
+	for (int i = 0; i < _waypoints.size(); i++)
+		_waypoints.at(i)->setToolTipFormat(_units, _coordinatesFormat);
+
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setToolTipFormat(_units, _coordinatesFormat);
+}
+
+void MapView::setCoordinatesFormat(CoordinatesFormat format)
+{
+	if (_coordinatesFormat == format)
+		return;
+
+	_coordinatesFormat = format;
+
+	for (int i = 0; i < _waypoints.count(); i++)
+		_waypoints.at(i)->setToolTipFormat(_units, _coordinatesFormat);
+	for (int i = 0; i < _routes.count(); i++)
+		_routes[i]->setCoordinatesFormat(_coordinatesFormat);
+
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setToolTipFormat(_units, _coordinatesFormat);
+}
+
+void MapView::clearMapCache()
+{
+	_map->clearCache();
+
+	fitMapZoom();
+	rescale();
+	centerOn(contentCenter());
+}
+
+void MapView::digitalZoom(int zoom)
+{
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+
+	if (zoom) {
+		_digitalZoom += zoom;
+		scale(pow(2, zoom), pow(2, zoom));
+	} else {
+		_digitalZoom = 0;
+		resetTransform();
+	}
+
+	for (int i = 0; i < _tracks.size(); i++)
+		_tracks.at(i)->setDigitalZoom(_digitalZoom);
+	for (int i = 0; i < _routes.size(); i++)
+		_routes.at(i)->setDigitalZoom(_digitalZoom);
+	for (int i = 0; i < _waypoints.size(); i++)
+		_waypoints.at(i)->setDigitalZoom(_digitalZoom);
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setDigitalZoom(_digitalZoom);
+
+	_mapScale->setDigitalZoom(_digitalZoom);
+}
+
+void MapView::zoom(int zoom, const QPoint &pos, const Coordinates &c)
+{
+	bool shift = QApplication::keyboardModifiers() & Qt::ShiftModifier;
+
+	if (_digitalZoom) {
+		if (((_digitalZoom > 0 && zoom > 0) && (!shift || _digitalZoom
+		  >= MAX_DIGITAL_ZOOM)) || ((_digitalZoom < 0 && zoom < 0) && (!shift
+		  || _digitalZoom <= MIN_DIGITAL_ZOOM)))
+			return;
+
+		digitalZoom(zoom);
+	} else {
+		qreal os, ns;
+		os = _map->zoom();
+		ns = (zoom > 0) ? _map->zoomIn() : _map->zoomOut();
+
+		if (ns != os) {
+			rescale();
+			centerOn(_map->ll2xy(c) - (pos - viewport()->rect().center()));
+		} else {
+			if (shift)
+				digitalZoom(zoom);
+		}
+	}
+}
+
+void MapView::wheelEvent(QWheelEvent *event)
+{
+	static int deg = 0;
+
+	deg += event->delta() / 8;
+	if (qAbs(deg) < 15)
+		return;
+	deg = 0;
+
+	Coordinates c = _map->xy2ll(mapToScene(event->pos()));
+	zoom((event->delta() > 0) ? 1 : -1, event->pos(), c);
+}
+
+void MapView::mouseDoubleClickEvent(QMouseEvent *event)
+{
+	if (event->button() != Qt::LeftButton && event->button() != Qt::RightButton)
+		return;
+
+	Coordinates c = _map->xy2ll(mapToScene(event->pos()));
+	zoom((event->button() == Qt::LeftButton) ? 1 : -1, event->pos(), c);
+}
+#ifdef Q_WS_MAEMO_5
+void MapView::mousePressEvent(QMouseEvent *e)
+{
+	if (e->button() == Qt::RightButton)
+		QWidget::mousePressEvent(e);
+	else
+		QGraphicsView::mousePressEvent(e);
+}
+void MapView::zoom_maemo(QString direction)
+{
+	qreal os, ns;
+	int z;
+
+	os = _map->zoom();
+	QPoint pos = QRect(QPoint(), viewport()->size()).center();
+	Coordinates c = _map->xy2ll(mapToScene(pos));
+	if (direction=="in")
+	{
+		ns = _map->zoomIn();
+		z = 1;
+	}
+	else
+	{
+		ns = _map->zoomOut();
+		z = -1;
+	}
+	if (ns != os)
+		zoom(z, pos, c);
+}
+void MapView::setRescale(bool rescale)
+{
+	_rescale=rescale;
+}
+
+#endif
+
+void MapView::keyPressEvent(QKeyEvent *event)
+{
+	int z;
+
+	QPoint pos = viewport()->rect().center();
+	Coordinates c = _map->xy2ll(mapToScene(pos));
+
+#ifdef Q_WS_MAEMO_5
+	if (event->key()==Qt::Key_F7)
+		z = 1;
+	else if (event->key()==Qt::Key_F8)
+		z = -1;
+	else if (_digitalZoom && event->key() == Qt::Key_Escape) {
+		digitalZoom(0);
+		return;}
+#else
+	if (event->matches(ZOOM_IN))
+		z = 1;
+	else if (event->matches(ZOOM_OUT))
+		z = -1;
+	else if (_digitalZoom && event->key() == Qt::Key_Escape) {
+		digitalZoom(0);
+		return;
+	} 
+#endif
+	else {
+		QGraphicsView::keyPressEvent(event);
+		return;
+	}
+
+	zoom(z, pos, c);
+}
+
+void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
+  bool hires)
+{
+	QRect orig, adj;
+	qreal ratio, diff, q;
+	QPointF origScene, origPos;
+	RectC origC;
+
+
+	// Enter plot mode
+	setUpdatesEnabled(false);
+	_plot = true;
+	_map->setBlockingMode(true);
+
+	// Compute sizes & ratios
+	orig = viewport()->rect();
+	origPos = _mapScale->pos();
+
+	if (orig.height() * (target.width() / target.height()) - orig.width() < 0) {
+		ratio = target.height() / target.width();
+		diff = (orig.width() * ratio) - orig.height();
+		adj = orig.adjusted(0, -diff/2, 0, diff/2);
+	} else {
+		ratio = target.width() / target.height();
+		diff = (orig.height() * ratio) - orig.width();
+		adj = orig.adjusted(-diff/2, 0, diff/2, 0);
+	}
+	q = (target.width() / scale) / adj.width();
+
+	// Adjust the view for printing
+	if (hires) {
+		QRectF vr(mapToScene(orig).boundingRect());
+		origC = RectC(_map->xy2ll(vr.topLeft()), _map->xy2ll(vr.bottomRight()));
+		origScene = vr.center();
+
+		QPointF s(painter->device()->logicalDpiX()
+		  / (qreal)metric(QPaintDevice::PdmDpiX),
+		  painter->device()->logicalDpiY()
+		  / (qreal)metric(QPaintDevice::PdmDpiY));
+		adj = QRect(0, 0, adj.width() * s.x(), adj.height() * s.y());
+		_map->zoomFit(adj.size(), _tr | _rr | _wr);
+		rescale();
+
+		QPointF center = contentCenter();
+		centerOn(center);
+		adj.moveCenter(mapFromScene(center));
+
+		_mapScale->setDigitalZoom(-log2(s.x() / q));
+		_mapScale->setPos(mapToScene(QPoint(adj.bottomRight() + QPoint(
+		  -(SCALE_OFFSET + _mapScale->boundingRect().width()) * (s.x() / q),
+		  -(SCALE_OFFSET + _mapScale->boundingRect().height()) * (s.x() / q)))));
+	} else {
+		_mapScale->setDigitalZoom(-log2(1.0 / q));
+		_mapScale->setPos(mapToScene(QPoint(adj.bottomRight() + QPoint(
+		  -(SCALE_OFFSET + _mapScale->boundingRect().width()) / q ,
+		  -(SCALE_OFFSET + _mapScale->boundingRect().height()) / q))));
+	}
+
+	// Print the view
+	render(painter, target, adj);
+
+	// Revert view changes to display mode
+	if (hires) {
+		_map->zoomFit(orig.size(), origC);
+		rescale();
+		centerOn(origScene);
+	}
+	_mapScale->setDigitalZoom(0);
+	_mapScale->setPos(origPos);
+
+	// Exit plot mode
+	_map->setBlockingMode(false);
+	_plot = false;
+	setUpdatesEnabled(true);
+}
+
+void MapView::clear()
+{
+	_pois.clear();
+	_tracks.clear();
+	_routes.clear();
+	_waypoints.clear();
+
+	_scene->removeItem(_mapScale);
+	_scene->clear();
+	_scene->addItem(_mapScale);
+
+	_palette.reset();
+
+	_tr = RectC();
+	_rr = RectC();
+	_wr = RectC();
+
+	digitalZoom(0);
+
+	// If not reset, causes huge redraw areas (and system memory exhaustion)
+	resetCachedContent();
+}
+
+void MapView::showTracks(bool show)
+{
+	_showTracks = show;
+
+	for (int i = 0; i < _tracks.count(); i++)
+		_tracks.at(i)->setVisible(show);
+
+	updatePOI();
+}
+
+void MapView::showRoutes(bool show)
+{
+	_showRoutes = show;
+
+	for (int i = 0; i < _routes.count(); i++)
+		_routes.at(i)->setVisible(show);
+
+	updatePOI();
+}
+
+void MapView::showWaypoints(bool show)
+{
+	_showWaypoints = show;
+
+	for (int i = 0; i < _waypoints.count(); i++)
+		_waypoints.at(i)->setVisible(show);
+
+	updatePOI();
+}
+
+void MapView::showWaypointLabels(bool show)
+{
+	_showWaypointLabels = show;
+
+	for (int i = 0; i < _waypoints.size(); i++)
+		_waypoints.at(i)->showLabel(show);
+
+	for (int i = 0; i < _routes.size(); i++)
+		_routes.at(i)->showWaypointLabels(show);
+}
+
+void MapView::showRouteWaypoints(bool show)
+{
+	_showRouteWaypoints = show;
+
+	for (int i = 0; i < _routes.size(); i++)
+		_routes.at(i)->showWaypoints(show);
+}
+
+void MapView::showMap(bool show)
+{
+	_showMap = show;
+	resetCachedContent();
+}
+
+void MapView::showPOI(bool show)
+{
+	_showPOI = show;
+
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setVisible(show);
+
+	updatePOIVisibility();
+}
+
+void MapView::showPOILabels(bool show)
+{
+	_showPOILabels = show;
+
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->showLabel(show);
+
+	updatePOIVisibility();
+}
+
+void MapView::setPOIOverlap(bool overlap)
+{
+	_overlapPOIs = overlap;
+
+	updatePOIVisibility();
+}
+
+void MapView::setTrackWidth(int width)
+{
+	_trackWidth = width;
+
+	for (int i = 0; i < _tracks.count(); i++)
+		_tracks.at(i)->setWidth(width);
+}
+
+void MapView::setRouteWidth(int width)
+{
+	_routeWidth = width;
+
+	for (int i = 0; i < _routes.count(); i++)
+		_routes.at(i)->setWidth(width);
+}
+
+void MapView::setTrackStyle(Qt::PenStyle style)
+{
+	_trackStyle = style;
+
+	for (int i = 0; i < _tracks.count(); i++)
+		_tracks.at(i)->setStyle(style);
+}
+
+void MapView::setRouteStyle(Qt::PenStyle style)
+{
+	_routeStyle = style;
+
+	for (int i = 0; i < _routes.count(); i++)
+		_routes.at(i)->setStyle(style);
+}
+
+void MapView::setWaypointSize(int size)
+{
+	_waypointSize = size;
+
+	for (int i = 0; i < _waypoints.size(); i++)
+		_waypoints.at(i)->setSize(size);
+}
+
+void MapView::setWaypointColor(const QColor &color)
+{
+	_waypointColor = color;
+
+	for (int i = 0; i < _waypoints.size(); i++)
+		_waypoints.at(i)->setColor(color);
+}
+
+void MapView::setPOISize(int size)
+{
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+
+	_poiSize = size;
+
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setSize(size);
+}
+
+void MapView::setPOIColor(const QColor &color)
+{
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+
+	_poiColor = color;
+
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setColor(color);
+}
+
+void MapView::setMapOpacity(int opacity)
+{
+	_opacity = opacity / 100.0;
+	resetCachedContent();
+}
+
+void MapView::setBackgroundColor(const QColor &color)
+{
+	_backgroundColor = color;
+	_map->setBackgroundColor(color);
+	resetCachedContent();
+}
+
+void MapView::drawBackground(QPainter *painter, const QRectF &rect)
+{
+	painter->fillRect(rect, _backgroundColor);
+
+	if (_showMap) {
+		QRectF ir = rect.intersected(_map->bounds());
+		if (_opacity < 1.0)
+			painter->setOpacity(_opacity);
+		_map->draw(painter, ir);
+	}
+}
+
+void MapView::resizeEvent(QResizeEvent *event)
+{
+#ifdef Q_WS_MAEMO_5
+	if (_rescale)
+	{
+#endif
+	int zoom = _map->zoom();
+	if (fitMapZoom() != zoom)
+		rescale();
+
+	centerOn(contentCenter());
+
+#ifdef Q_WS_MAEMO_5
+	}
+	else _rescale = true;
+#endif
+
+	QGraphicsView::resizeEvent(event);
+}
+
+void MapView::paintEvent(QPaintEvent *event)
+{
+	QPointF scenePos = mapToScene(rect().bottomRight() + QPoint(
+	  -(SCALE_OFFSET + _mapScale->boundingRect().width()),
+	  -(SCALE_OFFSET + _mapScale->boundingRect().height())));
+	if (_mapScale->pos() != scenePos && !_plot)
+		_mapScale->setPos(scenePos);
+
+	QGraphicsView::paintEvent(event);
+}
+
+void MapView::scrollContentsBy(int dx, int dy)
+{
+	QGraphicsView::scrollContentsBy(dx, dy);
+
+	QRectF sr(mapToScene(viewport()->rect()).boundingRect());
+	qreal res = _map->resolution(sr);
+
+	if (qMax(res, _res) / qMin(res, _res) > 1.1) {
+		_mapScale->setResolution(res);
+		_res = res;
+	}
+}
+
+void MapView::useOpenGL(bool use)
+{
+	if (use)
+		setViewport(new OPENGL_WIDGET);
+	else
+		setViewport(new QWidget);
+}
+
+void MapView::useAntiAliasing(bool use)
+{
+	setRenderHint(QPainter::Antialiasing, use);
+}
+
+void MapView::setMarkerColor(const QColor &color)
+{
+	_markerColor = color;
+
+	for (int i = 0; i < _tracks.size(); i++)
+		_tracks.at(i)->setMarkerColor(color);
+	for (int i = 0; i < _routes.size(); i++)
+		_routes.at(i)->setMarkerColor(color);
+}
+
+void MapView::reloadMap()
+{
+	resetCachedContent();
+}

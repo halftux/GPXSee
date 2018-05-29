@@ -5,7 +5,7 @@
 ; The name of the installer
 Name "GPXSee"
 ; Program version
-!define VERSION "4.16"
+!define VERSION "5.6"
 
 ; The file to write
 OutFile "GPXSee-${VERSION}_x64.exe"
@@ -90,9 +90,8 @@ Section "GPXSee" SEC_APP
   
   ; Put the files there
   File "gpxsee.exe"
-  File "maps.txt"
-  File "ellipsoids.csv"
-  File "datums.csv"
+  File /r "maps"
+  File /r "csv"
   
   ; Create start menu entry and add links
   SetShellVarContext all
@@ -197,6 +196,38 @@ Section "ANGLE" SEC_ANGLE
 
 SectionEnd
 
+SectionGroup "Localization" SEC_LOCALIZATION
+  Section "Czech"
+    CreateDirectory "$INSTDIR\translations"
+    File /oname=translations\gpxsee_cs.qm translations\gpxsee_cs.qm
+    File /oname=translations\qt_cs.qm translations\qt_cs.qm
+  SectionEnd
+  Section "Finnish"
+    CreateDirectory "$INSTDIR\translations"
+    File /oname=translations\gpxsee_fi.qm translations\gpxsee_fi.qm
+    File /oname=translations\qt_fi.qm translations\qt_fi.qm
+  SectionEnd
+  Section "French"
+    CreateDirectory "$INSTDIR\translations"
+    File /oname=translations\gpxsee_fr.qm translations\gpxsee_fr.qm
+    File /oname=translations\qt_fr.qm translations\qt_fr.qm
+  SectionEnd
+  Section "German"
+    CreateDirectory "$INSTDIR\translations"
+    File /oname=translations\gpxsee_de.qm translations\gpxsee_de.qm
+    File /oname=translations\qt_de.qm translations\qt_de.qm
+  SectionEnd
+  Section "Russian"
+    CreateDirectory "$INSTDIR\translations" 
+    File /oname=translations\gpxsee_ru.qm translations\gpxsee_ru.qm
+    File /oname=translations\qt_ru.qm translations\qt_ru.qm
+  SectionEnd
+  Section "Swedish"
+    CreateDirectory "$INSTDIR\translations" 
+    File /oname=translations\gpxsee_sv.qm translations\gpxsee_sv.qm
+  SectionEnd
+SectionGroupEnd
+
 ;--------------------------------
 
 ; Uninstaller
@@ -249,6 +280,8 @@ LangString DESC_ANGLE ${LANG_ENGLISH} \
   "ANGLE (OpenGL via Direct3D). Enables OpenGL on systems without native OpenGL drivers."
 LangString DESC_APP ${LANG_ENGLISH} \
   "GPXSee application"
+LangString DESC_LOCALIZATION ${LANG_ENGLISH} \
+  "Localization"
 
 ;Assign language strings to sections
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
@@ -257,4 +290,5 @@ LangString DESC_APP ${LANG_ENGLISH} \
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_ANGLE} $(DESC_ANGLE)
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_MSVC} $(DESC_MSVC) 
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_APP} $(DESC_APP)
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_LOCALIZATION} $(DESC_LOCALIZATION)
 !insertmacro MUI_FUNCTION_DESCRIPTION_END

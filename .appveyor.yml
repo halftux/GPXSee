@@ -1,4 +1,4 @@
-version: 4.16.{build}
+version: 5.6.{build}
 configuration: Release
 platform: Any CPU
 environment:
@@ -34,11 +34,11 @@ build_script:
 
     copy pkg\%NSI% installer
 
-    copy pkg\datums.csv installer
+    xcopy pkg\csv installer\csv /i
 
-    copy pkg\ellipsoids.csv installer
+    xcopy pkg\maps installer\maps /i
 
-    copy pkg\maps.txt installer
+    xcopy lang\*.qm installer\translations\ /sy
 
     copy licence.txt installer
 

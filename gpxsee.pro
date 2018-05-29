@@ -1,6 +1,6 @@
 
 TARGET = gpxsee
-VERSION = 4.16
+VERSION = 5.6
 
 QT += core \
     gui \
@@ -10,211 +10,258 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += printsupport
 lessThan(QT_VERSION, 5.4): QT += opengl
 macx: QT += opengl
 maemo5: QT += maemo5
+
+INCLUDEPATH += ./src
 HEADERS += src/config.h \
-    src/icons.h \
-    src/gui.h \
-    src/poi.h \
-    src/rtree.h \
-    src/axisitem.h \
-    src/keys.h \
-    src/slideritem.h \
-    src/markeritem.h \
-    src/infoitem.h \
-    src/elevationgraph.h \
-    src/speedgraph.h \
-    src/sliderinfoitem.h \
-    src/filebrowser.h \
-    src/map.h \
-    src/onlinemap.h \
-    src/downloader.h \
-    src/units.h \
-    src/scaleitem.h \
-    src/waypoint.h \
-    src/track.h \
-    src/graphview.h \
-    src/trackpoint.h \
-    src/waypointitem.h \
-    src/palette.h \
-    src/heartrategraph.h \
-    src/range.h \
-    src/cpuarch.h \
-    src/settings.h \
-    src/app.h \
-    src/trackinfo.h \
-    src/exportdialog.h \
-    src/fileselectwidget.h \
-    src/margins.h \
-    src/temperaturegraph.h \
-    src/graphtab.h \
-    src/misc.h \
-    src/trackitem.h \
-    src/tooltip.h \
-    src/route.h \
-    src/routeitem.h \
-    src/graphitem.h \
-    src/graph.h \
-    src/pathitem.h \
-    src/pathview.h \
-    src/griditem.h \
-    src/data.h \
-    src/gpxparser.h \
-    src/tcxparser.h \
-    src/parser.h \
-    src/csvparser.h \
-    src/coordinates.h \
-    src/tile.h \
-    src/rd.h \
-    src/wgs84.h \
-    src/kmlparser.h \
-    src/trackdata.h \
-    src/routedata.h \
-    src/fitparser.h \
-    src/format.h \
-    src/path.h \
-    src/assert.h \
-    src/cadencegraph.h \
-    src/powergraph.h \
-    src/igcparser.h \
-    src/nmeaparser.h \
-    src/optionsdialog.h \
-    src/colorbox.h \
-    src/stylecombobox.h \
-    src/opengl.h \
-    src/timetype.h \
-    src/emptymap.h \
-    src/offlinemap.h \
-    src/matrix.h \
-    src/tar.h \
-    src/atlas.h \
-    src/projection.h \
-    src/mercator.h \
-    src/transversemercator.h \
-    src/latlon.h \
-    src/utm.h \
-    src/lambertconic.h \
-    src/ellipsoid.h \
-    src/ozf.h \
-    src/datum.h \
-    src/maplist.h \
-    src/albersequal.h \
-    src/oddspinbox.h \
-    src/rectc.h \
-    src/searchpointer.h \
-    src/percentslider.h \
-    src/elevationgraphitem.h \
-    src/speedgraphitem.h \
-    src/heartrategraphitem.h \
-    src/temperaturegraphitem.h \
-    src/cadencegraphitem.h \
-    src/powergraphitem.h
-
+    src/common/staticassert.h \
+    src/common/coordinates.h \
+    src/common/range.h \
+    src/common/rectc.h \
+    src/common/wgs84.h \
+    src/common/str2int.h \
+    src/GUI/app.h \
+    src/GUI/icons.h \
+    src/GUI/gui.h \
+    src/GUI/axisitem.h \
+    src/GUI/keys.h \
+    src/GUI/slideritem.h \
+    src/GUI/markeritem.h \
+    src/GUI/infoitem.h \
+    src/GUI/elevationgraph.h \
+    src/GUI/speedgraph.h \
+    src/GUI/sliderinfoitem.h \
+    src/GUI/filebrowser.h \
+    src/GUI/units.h \
+    src/GUI/scaleitem.h \
+    src/GUI/graphview.h \
+    src/GUI/waypointitem.h \
+    src/GUI/palette.h \
+    src/GUI/heartrategraph.h \
+    src/GUI/trackinfo.h \
+    src/GUI/exportdialog.h \
+    src/GUI/fileselectwidget.h \
+    src/GUI/margins.h \
+    src/GUI/temperaturegraph.h \
+    src/GUI/graphtab.h \
+    src/GUI/trackitem.h \
+    src/GUI/tooltip.h \
+    src/GUI/routeitem.h \
+    src/GUI/graphitem.h \
+    src/GUI/pathitem.h \
+    src/GUI/griditem.h \
+    src/GUI/format.h \
+    src/GUI/cadencegraph.h \
+    src/GUI/powergraph.h \
+    src/GUI/optionsdialog.h \
+    src/GUI/colorbox.h \
+    src/GUI/stylecombobox.h \
+    src/GUI/opengl.h \
+    src/GUI/timetype.h \
+    src/GUI/percentslider.h \
+    src/GUI/elevationgraphitem.h \
+    src/GUI/speedgraphitem.h \
+    src/GUI/heartrategraphitem.h \
+    src/GUI/temperaturegraphitem.h \
+    src/GUI/cadencegraphitem.h \
+    src/GUI/powergraphitem.h \
+    src/GUI/oddspinbox.h \
+    src/GUI/settings.h \
+    src/GUI/nicenum.h \
+    src/GUI/cpuarch.h \
+    src/GUI/searchpointer.h \
+    src/GUI/mapview.h \
+    src/map/projection.h \
+    src/map/ellipsoid.h \
+    src/map/datum.h \
+    src/map/mercator.h \
+    src/map/transversemercator.h \
+    src/map/latlon.h \
+    src/map/utm.h \
+    src/map/lambertconic.h \
+    src/map/lambertazimuthal.h \
+    src/map/albersequal.h \
+    src/map/map.h \
+    src/map/maplist.h \
+    src/map/onlinemap.h \
+    src/map/downloader.h \
+    src/map/tile.h \
+    src/map/emptymap.h \
+    src/map/offlinemap.h \
+    src/map/tar.h \
+    src/map/ozf.h \
+    src/map/atlas.h \
+    src/map/matrix.h \
+    src/map/geotiff.h \
+    src/map/pcs.h \
+    src/map/transform.h \
+    src/map/mapfile.h \
+    src/map/tifffile.h \
+    src/data/graph.h \
+    src/data/poi.h \
+    src/data/waypoint.h \
+    src/data/track.h \
+    src/data/route.h \
+    src/data/trackpoint.h \
+    src/data/data.h \
+    src/data/parser.h \
+    src/data/trackdata.h \
+    src/data/routedata.h \
+    src/data/path.h \
+    src/data/rtree.h \
+    src/data/gpxparser.h \
+    src/data/tcxparser.h \
+    src/data/csvparser.h \
+    src/data/kmlparser.h \
+    src/data/fitparser.h \
+    src/data/igcparser.h \
+    src/data/nmeaparser.h \
+    src/map/gcs.h \
+    src/map/angularunits.h \
+    src/map/primemeridian.h \
+    src/map/linearunits.h \
+    src/map/ct.h \
+    src/map/mapsource.h \
+    src/map/tileloader.h \
+    src/map/wmtsmap.h \
+    src/map/wmts.h \
+    src/map/wmsmap.h \
+    src/map/wms.h \
+    src/map/crs.h \
+    src/map/coordinatesystem.h
 SOURCES += src/main.cpp \
-    src/gui.cpp \
-    src/poi.cpp \
-    src/axisitem.cpp \
-    src/slideritem.cpp \
-    src/markeritem.cpp \
-    src/infoitem.cpp \
-    src/elevationgraph.cpp \
-    src/speedgraph.cpp \
-    src/sliderinfoitem.cpp \
-    src/filebrowser.cpp \
-    src/onlinemap.cpp \
-    src/downloader.cpp \
-    src/scaleitem.cpp \
-    src/track.cpp \
-    src/graphview.cpp \
-    src/waypointitem.cpp \
-    src/palette.cpp \
-    src/heartrategraph.cpp \
-    src/range.cpp \
-    src/app.cpp \
-    src/trackinfo.cpp \
-    src/exportdialog.cpp \
-    src/fileselectwidget.cpp \
-    src/temperaturegraph.cpp \
-    src/trackpoint.cpp \
-    src/misc.cpp \
-    src/waypoint.cpp \
-    src/trackitem.cpp \
-    src/tooltip.cpp \
-    src/route.cpp \
-    src/routeitem.cpp \
-    src/graphitem.cpp \
-    src/pathitem.cpp \
-    src/pathview.cpp \
-    src/griditem.cpp \
-    src/data.cpp \
-    src/gpxparser.cpp \
-    src/tcxparser.cpp \
-    src/csvparser.cpp \
-    src/coordinates.cpp \
-    src/kmlparser.cpp \
-    src/fitparser.cpp \
-    src/format.cpp \
-    src/graph.cpp \
-    src/cadencegraph.cpp \
-    src/powergraph.cpp \
-    src/igcparser.cpp \
-    src/path.cpp \
-    src/nmeaparser.cpp \
-    src/optionsdialog.cpp \
-    src/colorbox.cpp \
-    src/stylecombobox.cpp \
-    src/emptymap.cpp \
-    src/offlinemap.cpp \
-    src/matrix.cpp \
-    src/tar.cpp \
-    src/atlas.cpp \
-    src/mercator.cpp \
-    src/transversemercator.cpp \
-    src/utm.cpp \
-    src/lambertconic.cpp \
-    src/ellipsoid.cpp \
-    src/ozf.cpp \
-    src/datum.cpp \
-    src/maplist.cpp \
-    src/albersequal.cpp \
-    src/oddspinbox.cpp \
-    src/rectc.cpp \
-    src/percentslider.cpp \
-    src/elevationgraphitem.cpp \
-    src/speedgraphitem.cpp \
-    src/heartrategraphitem.cpp \
-    src/temperaturegraphitem.cpp \
-    src/cadencegraphitem.cpp \
-    src/powergraphitem.cpp
-
+    src/common/coordinates.cpp \
+    src/common/rectc.cpp \
+    src/common/range.cpp \
+    src/common/str2int.cpp \
+    src/GUI/app.cpp \
+    src/GUI/gui.cpp \
+    src/GUI/axisitem.cpp \
+    src/GUI/slideritem.cpp \
+    src/GUI/markeritem.cpp \
+    src/GUI/infoitem.cpp \
+    src/GUI/elevationgraph.cpp \
+    src/GUI/speedgraph.cpp \
+    src/GUI/sliderinfoitem.cpp \
+    src/GUI/filebrowser.cpp \
+    src/GUI/scaleitem.cpp \
+    src/GUI/graphview.cpp \
+    src/GUI/waypointitem.cpp \
+    src/GUI/palette.cpp \
+    src/GUI/heartrategraph.cpp \
+    src/GUI/trackinfo.cpp \
+    src/GUI/exportdialog.cpp \
+    src/GUI/fileselectwidget.cpp \
+    src/GUI/temperaturegraph.cpp \
+    src/GUI/trackitem.cpp \
+    src/GUI/tooltip.cpp \
+    src/GUI/routeitem.cpp \
+    src/GUI/graphitem.cpp \
+    src/GUI/pathitem.cpp \
+    src/GUI/griditem.cpp \
+    src/GUI/format.cpp \
+    src/GUI/cadencegraph.cpp \
+    src/GUI/powergraph.cpp \
+    src/GUI/optionsdialog.cpp \
+    src/GUI/colorbox.cpp \
+    src/GUI/stylecombobox.cpp \
+    src/GUI/oddspinbox.cpp \
+    src/GUI/percentslider.cpp \
+    src/GUI/elevationgraphitem.cpp \
+    src/GUI/speedgraphitem.cpp \
+    src/GUI/heartrategraphitem.cpp \
+    src/GUI/temperaturegraphitem.cpp \
+    src/GUI/cadencegraphitem.cpp \
+    src/GUI/powergraphitem.cpp \
+    src/GUI/nicenum.cpp \
+    src/GUI/mapview.cpp \
+    src/map/maplist.cpp \
+    src/map/onlinemap.cpp \
+    src/map/downloader.cpp \
+    src/map/emptymap.cpp \
+    src/map/offlinemap.cpp \
+    src/map/tar.cpp \
+    src/map/atlas.cpp \
+    src/map/ozf.cpp \
+    src/map/matrix.cpp \
+    src/map/ellipsoid.cpp \
+    src/map/datum.cpp \
+    src/map/mercator.cpp \
+    src/map/transversemercator.cpp \
+    src/map/utm.cpp \
+    src/map/lambertconic.cpp \
+    src/map/albersequal.cpp \
+    src/map/lambertazimuthal.cpp \
+    src/map/geotiff.cpp \
+    src/map/pcs.cpp \
+    src/map/transform.cpp \
+    src/map/mapfile.cpp \
+    src/map/tifffile.cpp \
+    src/data/data.cpp \
+    src/data/poi.cpp \
+    src/data/track.cpp \
+    src/data/route.cpp \
+    src/data/path.cpp \
+    src/data/gpxparser.cpp \
+    src/data/tcxparser.cpp \
+    src/data/csvparser.cpp \
+    src/data/kmlparser.cpp \
+    src/data/fitparser.cpp \
+    src/data/igcparser.cpp \
+    src/data/nmeaparser.cpp \
+    src/map/projection.cpp \
+    src/map/gcs.cpp \
+    src/map/angularunits.cpp \
+    src/map/primemeridian.cpp \
+    src/map/linearunits.cpp \
+    src/map/mapsource.cpp \
+    src/map/tileloader.cpp \
+    src/map/wmtsmap.cpp \
+    src/map/wmts.cpp \
+    src/map/wmsmap.cpp \
+    src/map/wms.cpp \
+    src/map/crs.cpp \
+    src/map/coordinatesystem.cpp
 RESOURCES += gpxsee.qrc
-
+!maemo5: TRANSLATIONS = lang/gpxsee_cs.ts \
+    lang/gpxsee_sv.ts \
+    lang/gpxsee_de.ts \
+    lang/gpxsee_ru.ts \
+    lang/gpxsee_fi.ts \
+    lang/gpxsee_fr.ts
 maemo5 {
-SOURCES +=     src/expdialog.cpp \
-    src/optdialog.cpp
-SOURCES -=     src/exportdialog.cpp \
-    src/optionsdialog.cpp
-HEADERS +=     src/expdialog.h \
-    src/optdialog.h
-HEADERS -=     src/exportdialog.h \
-    src/optionsdialog.h
+SOURCES +=     src/GUI/expdialog.cpp \
+    src/GUI/optdialog.cpp
+SOURCES -=     src/GUI/exportdialog.cpp \
+    src/GUI/optionsdialog.cpp
+HEADERS +=     src/GUI/expdialog.h \
+    src/GUI/optdialog.h
+HEADERS -=     src/GUI/exportdialog.h \
+    src/GUI/optionsdialog.h
 FORMS += \
-    src/expdialog.ui \
-    src/optdialog.ui
+    src/GUI/expdialog.ui \
+    src/GUI/optdialog.ui
 }
-
 macx {
     ICON = icons/gpxsee.icns
-    QMAKE_INFO_PLIST = Info.plist
-    APP_RESOURCES.files = icons/gpx.icns \
-        icons/tcx.icns \
+    QMAKE_INFO_PLIST = pkg/Info.plist
+    LOCALE.path = Contents/Resources/translations
+    LOCALE.files = lang/gpxsee_cs.qm \
+        lang/gpxsee_de.qm \
+        lang/gpxsee_fi.qm \
+        lang/gpxsee_fr.qm \
+        lang/gpxsee_ru.qm \
+        lang/gpxsee_sv.qm
+    CSV.path = Contents/Resources
+    CSV.files = pkg/csv
+    MAPS.path = Contents/Resources
+    MAPS.files = pkg/maps
+    ICONS.path = Contents/Resources/icons
+    ICONS.files = icons/tcx.icns \
         icons/kml.icns \
         icons/fit.icns \
         icons/igc.icns \
-        icons/nmea.icns \
-        pkg/maps.txt \
-        pkg/ellipsoids.csv \
-        pkg/datums.csv
-    APP_RESOURCES.path = Contents/Resources
-    QMAKE_BUNDLE_DATA += APP_RESOURCES
+        icons/nmea.icns
+    QMAKE_BUNDLE_DATA += LOCALE MAPS ICONS CSV
 }
 win32 {
     RC_ICONS = icons/gpxsee.ico \
@@ -228,7 +275,7 @@ win32 {
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 
 maemo5 {
-    target.path = /opt/gpxsee/bin
+    target.path = /usr/bin
     INSTALLS += target
 }
 
@@ -242,4 +289,31 @@ maemo5 {
     icon.files = qtc_packaging/gpxsee.png
     icon.path = /usr/share/icons/hicolor/64x64/apps
     INSTALLS += icon
+}
+
+maemo5 {
+	map1.files = pkg/maps/4UMaps.xml
+	map1.path = /usr/share/gpxsee/maps
+	map2.files = pkg/maps/OpenStreetMap.xml
+	map2.path = /usr/share/gpxsee/maps
+	map3.files = pkg/maps/OpenTopoMap.xml
+	map3.path = /usr/share/gpxsee/maps
+	map4.files = pkg/maps/USGS-imagery.xml
+	map4.path = /usr/share/gpxsee/maps
+	map5.files = pkg/maps/USGS-topo.xml
+	map5.path = /usr/share/gpxsee/maps
+	csv1.files = pkg/csv/ellipsoids.csv
+	csv1.path = /usr/share/gpxsee/csv
+	csv2.files = pkg/csv/gcs.csv
+	csv2.path = /usr/share/gpxsee/csv
+	csv3.files = pkg/csv/pcs.csv
+	csv3.path = /usr/share/gpxsee/csv
+	INSTALLS += map1 \
+				map2 \
+				map3 \
+				map4 \
+				map5 \
+				csv1 \
+				csv2 \
+				csv3
 }
