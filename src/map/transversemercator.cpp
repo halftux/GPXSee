@@ -72,11 +72,9 @@ TransverseMercator::TransverseMercator(const Ellipsoid *ellipsoid,
 	_falseEasting = falseEasting;
 	_falseNorthing = falseNorthing;
 
-	_es = 2 * ellipsoid->flattening() - ellipsoid->flattening()
-	  * ellipsoid->flattening();
+	_es = ellipsoid->es();
 	_ebs = (1 / (1 - _es)) - 1;
-
-	b = _a * (1 - ellipsoid->flattening());
+	b = ellipsoid->b();
 
 	tn = (_a - b) / (_a + b);
 	tn2 = tn * tn;
@@ -93,7 +91,7 @@ TransverseMercator::TransverseMercator(const Ellipsoid *ellipsoid,
 	_ep = 315.e0 * _a * (tn4 - tn5) / 512.e0;
 }
 
-QPointF TransverseMercator::ll2xy(const Coordinates &c) const
+PointD TransverseMercator::ll2xy(const Coordinates &c) const
 {
 	double rl;
 	double cl, c2, c3, c5, c7;
@@ -109,9 +107,9 @@ QPointF TransverseMercator::ll2xy(const Coordinates &c) const
 	dlam = deg2rad(c.lon()) - _longitudeOrigin;
 
 	if (dlam > M_PI)
-		dlam -= (2 * M_PI);
+		dlam -= M_2_PI;
 	if (dlam < -M_PI)
-		dlam += (2 * M_PI);
+		dlam += M_2_PI;
 	if (fabs(dlam) < 2.e-10)
 		dlam = 0.0;
 
@@ -164,10 +162,10 @@ QPointF TransverseMercator::ll2xy(const Coordinates &c) const
 	x = _falseEasting + dlam * t6 + pow(dlam, 3.e0) * t7 + pow(dlam, 5.e0)
 	  * t8 + pow(dlam, 7.e0) * t9;
 
-	return QPointF(x, y);
+	return PointD(x, y);
 }
 
-Coordinates TransverseMercator::xy2ll(const QPointF &p) const
+Coordinates TransverseMercator::xy2ll(const PointD &p) const
 {
 	double cl;
 	double de;
@@ -237,20 +235,20 @@ Coordinates TransverseMercator::xy2ll(const QPointF &p) const
 		lat = M_PI - lat;
 		lon += M_PI;
 		if (lon > M_PI)
-			lon -= (2 * M_PI);
+			lon -= M_2_PI;
 	}
 
 	while (lat < deg2rad(-90.0)) {
 		lat = - (lat + M_PI);
 		lon += M_PI;
 		if (lon > M_PI)
-			lon -= (2 * M_PI);
+			lon -= M_2_PI;
 	}
 
-	if (lon > (2 * M_PI))
-		lon -= (2 * M_PI);
+	if (lon > M_2_PI)
+		lon -= M_2_PI;
 	if (lon < -M_PI)
-		lon += (2 * M_PI);
+		lon += M_2_PI;
 
 	return Coordinates(rad2deg(lon), rad2deg(lat));
 }

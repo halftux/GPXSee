@@ -24,6 +24,7 @@ public:
 	qreal resolution(const QRectF &rect) const;
 
 	int zoom() const {return _zoom;}
+	void setZoom(int zoom) {_zoom = zoom;}
 	int zoomFit(const QSize &size, const RectC &rect);
 	int zoomIn();
 	int zoomOut();
@@ -33,7 +34,7 @@ public:
 	Coordinates xy2ll(const QPointF &p)
 		{return static_cast<const OfflineMap &>(*this).xy2ll(p);}
 
-	void draw(QPainter *painter, const QRectF &rect);
+	void draw(QPainter *painter, const QRectF &rect, bool block);
 
 	void load();
 	void unload();
@@ -41,11 +42,11 @@ public:
 	bool isValid() const {return _valid;}
 	QString errorString() const {return _errorString;}
 
-	QPointF ll2pp(const Coordinates &c) const
+	PointD ll2pp(const Coordinates &c) const
 	  {return _projection.ll2xy(c);}
-	QPointF xy2pp(const QPointF &p) const
+	PointD xy2pp(const QPointF &p) const
 	  {return _transform.img2proj(p);}
-	QPointF pp2xy(const QPointF &p) const
+	QPointF pp2xy(const PointD &p) const
 	  {return _transform.proj2img(p);}
 
 private:

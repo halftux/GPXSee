@@ -8,15 +8,16 @@
 
 
 #define TILE_SIZE     256
+#define EPSILON       1e-6
 
 static QPointF ll2m(const Coordinates &c)
 {
-	return QPointF(c.lon(), rad2deg(log(tan(M_PI/4.0 + deg2rad(c.lat())/2.0))));
+	return QPointF(c.lon(), rad2deg(log(tan(M_PI_4 + deg2rad(c.lat())/2.0))));
 }
 
 static Coordinates m2ll(const QPointF &p)
 {
-	return Coordinates(p.x(), rad2deg(2 * atan(exp(deg2rad(p.y()))) - M_PI/2));
+	return Coordinates(p.x(), rad2deg(2.0 * atan(exp(deg2rad(p.y()))) - M_PI_2));
 }
 
 static QPoint mercator2tile(const QPointF &m, int z)
@@ -36,19 +37,24 @@ static qreal zoom2scale(int zoom)
 
 static int scale2zoom(qreal scale)
 {
-	return (int)log2(360.0/(scale * (qreal)TILE_SIZE));
+	return (int)(log2(360.0/(scale * (qreal)TILE_SIZE)) + EPSILON);
 }
 
 
 OnlineMap::OnlineMap(const QString &name, const QString &url,
-  const Range &zooms, const RectC &bounds, QObject *parent) :
-  Map(parent), _name(name), _zooms(zooms), _bounds(bounds),
-  _block(false), _valid(false)
+  const Range &zooms, const RectC &bounds, const Authorization &authorization,
+  QObject *parent) : Map(parent), _name(name), _zooms(zooms), _bounds(bounds),
+  _valid(false)
 {
 	QString dir(TILES_DIR + "/" + _name);
 
 	_zoom = _zooms.max();
-	_tileLoader = TileLoader(url, dir);
+
+	_tileLoader = new TileLoader(this);
+	_tileLoader->setUrl(url);
+	_tileLoader->setDir(dir);
+	_tileLoader->setAuthorization(authorization);
+	connect(_tileLoader, SIGNAL(finished()), this, SIGNAL(loaded()));
 
 	if (!QDir().mkpath(dir)) {
 		_errorString = "Error creating tiles dir";
@@ -56,23 +62,6 @@ OnlineMap::OnlineMap(const QString &name, const QString &url,
 	}
 
 	_valid = true;
-}
-
-void OnlineMap::load()
-{
-	connect(TileLoader::downloader(), SIGNAL(finished()), this,
-	  SLOT(emitLoaded()));
-}
-
-void OnlineMap::unload()
-{
-	disconnect(TileLoader::downloader(), SIGNAL(finished()), this,
-	  SLOT(emitLoaded()));
-}
-
-void OnlineMap::emitLoaded()
-{
-	emit loaded();
 }
 
 QRectF OnlineMap::bounds() const
@@ -90,15 +79,14 @@ int OnlineMap::limitZoom(int zoom) const
 	return zoom;
 }
 
-int OnlineMap::zoomFit(const QSize &size, const RectC &br)
+int OnlineMap::zoomFit(const QSize &size, const RectC &rect)
 {
-	if (!br.isValid())
+	if (!rect.isValid())
 		_zoom = _zooms.max();
 	else {
-		QRectF tbr(ll2m(br.topLeft()), ll2m(br.bottomRight()));
+		QRectF tbr(ll2m(rect.topLeft()), ll2m(rect.bottomRight()));
 		QPointF sc(tbr.width() / size.width(), tbr.height() / size.height());
-
-		_zoom = limitZoom(scale2zoom(qMax(sc.x(), sc.y())));
+		_zoom = limitZoom(scale2zoom(qMax(sc.x(), -sc.y())));
 	}
 
 	return _zoom;
@@ -124,7 +112,7 @@ int OnlineMap::zoomOut()
 	return _zoom;
 }
 
-void OnlineMap::draw(QPainter *painter, const QRectF &rect)
+void OnlineMap::draw(QPainter *painter, const QRectF &rect, bool block)
 {
 	qreal scale = zoom2scale(_zoom);
 
@@ -139,19 +127,16 @@ void OnlineMap::draw(QPainter *painter, const QRectF &rect)
 		for (int j = 0; j < ceil(s.height() / TILE_SIZE); j++)
 			tiles.append(Tile(QPoint(tile.x() + i, tile.y() + j), _zoom));
 
-	if (_block)
-		_tileLoader.loadTilesSync(tiles);
+	if (block)
+		_tileLoader->loadTilesSync(tiles);
 	else
-		_tileLoader.loadTilesAsync(tiles);
+		_tileLoader->loadTilesAsync(tiles);
 
 	for (int i = 0; i < tiles.count(); i++) {
 		Tile &t = tiles[i];
 		QPoint tp(tl.x() + (t.xy().x() - tile.x()) * TILE_SIZE,
 		  tl.y() + (t.xy().y() - tile.y()) * TILE_SIZE);
-		if (t.pixmap().isNull())
-			painter->fillRect(QRect(tp, QSize(TILE_SIZE, TILE_SIZE)),
-			  _backgroundColor);
-		else
+		if (!t.pixmap().isNull())
 			painter->drawPixmap(tp, t.pixmap());
 	}
 }

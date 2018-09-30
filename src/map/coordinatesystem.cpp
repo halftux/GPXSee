@@ -7,6 +7,9 @@ CoordinateSystem::CoordinateSystem(int code)
 		case 1035:
 		case 1039:
 		case 4400:
+		case 4402:
+		case 4404:
+		case 4405:
 		case 4409:
 		case 4463:
 		case 4464:
@@ -26,6 +29,7 @@ CoordinateSystem::CoordinateSystem(int code)
 		case 4530:
 		case 4531:
 		case 4532:
+		case 6501:
 			_axisOrder = YX;
 			break;
 		default:

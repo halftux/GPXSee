@@ -15,16 +15,16 @@ public:
 
 	virtual CT *clone() const {return new LambertConic1(*this);}
 
-	virtual QPointF ll2xy(const Coordinates &c) const;
-	virtual Coordinates xy2ll(const QPointF &p) const;
+	virtual PointD ll2xy(const Coordinates &c) const;
+	virtual Coordinates xy2ll(const PointD &p) const;
 
 private:
 	double _longitudeOrigin;
 	double _falseEasting;
 	double _falseNorthing;
 
-	double _es;
-	double _es_over_2;
+	double _e;
+	double _e_over_2;
 	double _n;
 	double _t0;
 	double _rho0;
@@ -40,8 +40,8 @@ public:
 
 	virtual CT *clone() const {return new LambertConic2(*this);}
 
-	virtual QPointF ll2xy(const Coordinates &c) const;
-	virtual Coordinates xy2ll(const QPointF &p) const;
+	virtual PointD ll2xy(const Coordinates &c) const;
+	virtual Coordinates xy2ll(const PointD &p) const;
 
 private:
 	LambertConic1 _lc1;

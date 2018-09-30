@@ -140,6 +140,8 @@
 #endif
 #define PIXMAP_CACHE_SETTING              "pixmapCache"
 #define PIXMAP_CACHE_DEFAULT              64 /* MB */
+#define CONNECTION_TIMEOUT_SETTING        "connectionTimeout"
+#define CONNECTION_TIMEOUT_DEFAULT        30 /* s */
 #define HIRES_PRINT_SETTING               "hiresPrint"
 #define HIRES_PRINT_DEFAULT               false
 #define PRINT_NAME_SETTING                "printName"

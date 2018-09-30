@@ -8,7 +8,7 @@ class CSVParser : public Parser
 public:
 	CSVParser() : _errorLine(0) {}
 
-	bool parse(QFile *file, QList<TrackData> &track, QList<RouteData> &routes,
+	bool parse(QFile *file, QList<TrackData> &tracks, QList<RouteData> &routes,
 	  QList<Waypoint> &waypoints);
 	QString errorString() const {return _errorString;}
 	int errorLine() const {return _errorLine;}

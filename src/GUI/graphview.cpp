@@ -187,7 +187,7 @@ void GraphView::showSliderInfo(bool show)
 	_sliderInfo->setVisible(show);
 }
 
-void GraphView::addGraph(GraphItem *graph, PathItem *path, int id)
+void GraphView::addGraph(GraphItem *graph, int id)
 {
 	QColor color(_palette.nextColor());
 	color.setAlpha(255);
@@ -199,10 +199,6 @@ void GraphView::addGraph(GraphItem *graph, PathItem *path, int id)
 
 	connect(this, SIGNAL(sliderPositionChanged(qreal)), graph,
 	  SLOT(emitSliderPositionChanged(qreal)));
-	connect(graph, SIGNAL(sliderPositionChanged(qreal)), path,
-	  SLOT(moveMarker(qreal)));
-	connect(path, SIGNAL(selected(bool)), graph, SLOT(hover(bool)));
-	connect(graph, SIGNAL(selected(bool)), path, SLOT(hover(bool)));
 
 	_graphs.append(graph);
 
@@ -312,6 +308,7 @@ void GraphView::redraw(const QSizeF &size)
 	if (r.height() < _minYRange * sy)
 		r.adjust(0, -(_minYRange/2 * sy - r.height()/2), 0,
 		  (_minYRange/2) * sy - r.height()/2);
+	r = r.toRect();
 
 	_xAxis->setSize(r.width());
 	_yAxis->setSize(r.height());

@@ -54,7 +54,7 @@ public:
 	class Zoom
 	{
 	public:
-		Zoom(const QString &id, qreal scaleDenominator, const QPointF &topLeft,
+		Zoom(const QString &id, double scaleDenominator, const PointD &topLeft,
 		  const QSize &tile, const QSize &matrix, const QRect &limits) :
 		  _id(id), _scaleDenominator(scaleDenominator), _topLeft(topLeft),
 		  _tile(tile), _matrix(matrix), _limits(limits) {}
@@ -62,16 +62,16 @@ public:
 		  {return _scaleDenominator > other._scaleDenominator;}
 
 		const QString &id() const {return _id;}
-		qreal scaleDenominator() const {return _scaleDenominator;}
-		const QPointF &topLeft() const {return _topLeft;}
+		double scaleDenominator() const {return _scaleDenominator;}
+		const PointD &topLeft() const {return _topLeft;}
 		const QSize &tile() const {return _tile;}
 		const QSize &matrix() const {return _matrix;}
 		const QRect &limits() const {return _limits;}
 
 	private:
 		QString _id;
-		qreal _scaleDenominator;
-		QPointF _topLeft;
+		double _scaleDenominator;
+		PointD _topLeft;
 		QSize _tile;
 		QSize _matrix;
 		QRect _limits;
@@ -88,14 +88,11 @@ public:
 	bool isValid() const {return _valid;}
 	const QString &errorString() const {return _errorString;}
 
-	static void setDownloader(Downloader *downloader)
-	  {_downloader = downloader;}
-
 private:
 	struct TileMatrix {
 		QString id;
-		qreal scaleDenominator;
-		QPointF topLeft;
+		double scaleDenominator;
+		PointD topLeft;
 		QSize tile;
 		QSize matrix;
 
@@ -153,8 +150,6 @@ private:
 
 	bool _valid;
 	QString _errorString;
-
-	static Downloader *_downloader;
 
 	friend uint qHash(const WMTS::TileMatrix &key);
 	friend uint qHash(const WMTS::MatrixLimits &key);

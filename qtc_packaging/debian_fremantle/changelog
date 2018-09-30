@@ -1,12 +1,18 @@
+gpxsee (0.5.13maemo1) unstable; urgency=low
+  * merged with upstream 5.13
+  * digital zoom is available
+
+ -- Christian Weniger <less_to_space@web.de>  Sun, 30 Sep 2018 20:40:44 +0100
+
 gpxsee (0.5.6maemo2) unstable; urgency=low
   * corrected desktop file
 
- -- Christian Weniger <less_to_space@web.de>  Wed, 23 Mai 2018 13:30:44 +0100
+ -- Christian Weniger <less_to_space@web.de>  Wed, 23 May 2018 13:30:44 +0100
 
 gpxsee (0.5.6maemo1) unstable; urgency=low
   * merged with upstream 5.6
 
- -- Christian Weniger <less_to_space@web.de>  Sat, 19 Mai 2018 13:20:14 +0100
+ -- Christian Weniger <less_to_space@web.de>  Sat, 19 May 2018 13:20:14 +0100
 
 gpxsee (0.4.16maemo1) unstable; urgency=low
   * merged with upstream 4.16

@@ -54,13 +54,13 @@ int MapFile::parse(QIODevice &device, QList<CalibrationPoint> &points,
 				int latd = list.at(6).trimmed().toInt(&res);
 				if (!res)
 					ll = false;
-				qreal latm = list.at(7).trimmed().toFloat(&res);
+				double latm = list.at(7).trimmed().toDouble(&res);
 				if (!res)
 					ll = false;
 				int lond = list.at(9).trimmed().toInt(&res);
 				if (!res)
 					ll = false;
-				qreal lonm = list.at(10).trimmed().toFloat(&res);
+				double lonm = list.at(10).trimmed().toDouble(&res);
 				if (!res)
 					ll = false;
 				if (ll && list.at(8).trimmed() == "S") {
@@ -75,16 +75,16 @@ int MapFile::parse(QIODevice &device, QList<CalibrationPoint> &points,
 				p.zone = list.at(13).trimmed().toInt(&res);
 				if (!res)
 					p.zone = 0;
-				qreal ppx = list.at(14).trimmed().toFloat(&res);
+				double ppx = list.at(14).trimmed().toDouble(&res);
 				if (!res)
 					pp = false;
-				qreal ppy = list.at(15).trimmed().toFloat(&res);
+				double ppy = list.at(15).trimmed().toDouble(&res);
 				if (!res)
 					pp = false;
 				if (list.at(16).trimmed() == "S")
 					p.zone = -p.zone;
 
-				p.rp.xy = QPoint(x, y);
+				p.rp.setXY(PointD(x, y));
 				if (ll) {
 					p.ll = Coordinates(lond + lonm/60.0, latd + latm/60.0);
 					if (p.ll.isValid())
@@ -92,7 +92,7 @@ int MapFile::parse(QIODevice &device, QList<CalibrationPoint> &points,
 					else
 						return ln;
 				} else if (pp) {
-					p.rp.pp = QPointF(ppx, ppy);
+					p.rp.setPP(PointD(ppx, ppy));
 					points.append(p);
 				} else
 					return ln;
@@ -238,8 +238,8 @@ bool MapFile::computeTransformation(QList<CalibrationPoint> &points)
 	QList<ReferencePoint> rp;
 
 	for (int i = 0; i < points.size(); i++) {
-		if (points.at(i).rp.pp.isNull())
-			points[i].rp.pp = _projection.ll2xy(points.at(i).ll);
+		if (points.at(i).rp.pp().isNull())
+			points[i].rp.setPP(_projection.ll2xy(points.at(i).ll));
 
 		rp.append(points.at(i).rp);
 	}

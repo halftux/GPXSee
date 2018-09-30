@@ -45,12 +45,6 @@ Defense.
 #include "ellipsoid.h"
 #include "lambertconic.h"
 
-#ifndef M_PI_2
-	#define M_PI_2 1.57079632679489661923
-#endif // M_PI_2
-#ifndef M_PI_4
-	#define M_PI_4 0.785398163397448309616
-#endif /* M_PI_4 */
 
 #define LAMBERT_m(clat, essin) (clat / sqrt(1.0 - essin * essin))
 #define LAMBERT2_t(lat, essin, es_over_2) \
@@ -63,8 +57,7 @@ LambertConic1::LambertConic1(const Ellipsoid *ellipsoid, double latitudeOrigin,
   double longitudeOrigin, double scale, double falseEasting,
   double falseNorthing)
 {
-	double es2;
-	double es_sin;
+	double e_sin;
 	double m0;
 	double lat_orig;
 
@@ -72,28 +65,26 @@ LambertConic1::LambertConic1(const Ellipsoid *ellipsoid, double latitudeOrigin,
 	lat_orig = deg2rad(latitudeOrigin);
 	_longitudeOrigin = deg2rad(longitudeOrigin);
 	if (_longitudeOrigin > M_PI)
-		_longitudeOrigin -= 2 * M_PI;
+		_longitudeOrigin -= M_2_PI;
 
 	_falseEasting = falseEasting;
 	_falseNorthing = falseNorthing;
 
-	es2 = 2.0 * ellipsoid->flattening() - ellipsoid->flattening()
-	  * ellipsoid->flattening();
-	_es = sqrt(es2);
-	_es_over_2 = _es / 2.0;
+	_e = sqrt(ellipsoid->es());
+	_e_over_2 = _e / 2.0;
 
 	_n = sin(lat_orig);
 
-	es_sin = _es * sin(lat_orig);
-	m0 = LAMBERT_m(cos(lat_orig), es_sin);
-	_t0 = LAMBERT1_t(lat_orig, es_sin, _es_over_2);
+	e_sin = _e * sin(lat_orig);
+	m0 = LAMBERT_m(cos(lat_orig), e_sin);
+	_t0 = LAMBERT1_t(lat_orig, e_sin, _e_over_2);
 
 	_rho0 = ellipsoid->radius() * scale * m0 / _n;
 
 	_rho_olat = _rho0;
 }
 
-QPointF LambertConic1::ll2xy(const Coordinates &c) const
+PointD LambertConic1::ll2xy(const Coordinates &c) const
 {
 	double t;
 	double rho;
@@ -103,7 +94,7 @@ QPointF LambertConic1::ll2xy(const Coordinates &c) const
 
 
 	if (fabs(fabs(lat) - M_PI_2) > 1.0e-10) {
-		t = LAMBERT1_t(lat, _es * sin(lat), _es_over_2);
+		t = LAMBERT1_t(lat, _e * sin(lat), _e_over_2);
 		rho = _rho0 * pow(t / _t0, _n);
 	} else
 		rho = 0.0;
@@ -111,17 +102,17 @@ QPointF LambertConic1::ll2xy(const Coordinates &c) const
 	dlam = deg2rad(c.lon()) - _longitudeOrigin;
 
 	if (dlam > M_PI)
-		dlam -= 2 * M_PI;
+		dlam -= M_2_PI;
 	if (dlam < -M_PI)
-		dlam += 2 * M_PI;
+		dlam += M_2_PI;
 
 	theta = _n * dlam;
 
-	return QPointF(rho * sin(theta) + _falseEasting, _rho_olat - rho
+	return PointD(rho * sin(theta) + _falseEasting, _rho_olat - rho
 	  * cos(theta) + _falseNorthing);
 }
 
-Coordinates LambertConic1::xy2ll(const QPointF &p) const
+Coordinates LambertConic1::xy2ll(const PointD &p) const
 {
 	double dx;
 	double dy;
@@ -154,9 +145,9 @@ Coordinates LambertConic1::xy2ll(const QPointF &p) const
 		PHI = M_PI_2 - 2.0 * atan(t);
 		while (fabs(PHI - tempPHI) > tolerance && count) {
 			tempPHI = PHI;
-			es_sin = _es * sin(PHI);
+			es_sin = _e * sin(PHI);
 			PHI = M_PI_2 - 2.0 * atan(t * pow((1.0 - es_sin) / (1.0 + es_sin),
-			  _es_over_2));
+			  _e_over_2));
 			count--;
 		}
 
@@ -177,13 +168,13 @@ Coordinates LambertConic1::xy2ll(const QPointF &p) const
 			if (lon - M_PI < 3.5e-6)
 				lon = M_PI;
 			else
-				lon -= 2 * M_PI;
+				lon -= M_2_PI;
 		}
 		if (lon < -M_PI) {
 			if (fabs(lon + M_PI) < 3.5e-6)
 				lon = -M_PI;
 			else
-				lon += 2 * M_PI;
+				lon += M_2_PI;
 		}
 
 		if (fabs(lon) < 2.0e-7)
@@ -207,7 +198,7 @@ LambertConic2::LambertConic2(const Ellipsoid *ellipsoid,
   double standardParallel1, double standardParallel2, double latitudeOrigin,
   double longitudeOrigin, double falseEasting, double falseNorthing)
 {
-	double es, es_over_2, es2, es_sin;
+	double e, e_over_2, e_sin;
 	double lat0;
 	double k0;
 	double t0;
@@ -227,29 +218,27 @@ LambertConic2::LambertConic2(const Ellipsoid *ellipsoid,
 	sp2 = deg2rad(standardParallel2);
 
 	if (fabs(sp1 - sp2) > 1.0e-10) {
-		es2 = 2 * ellipsoid->flattening() - ellipsoid->flattening()
-		  * ellipsoid->flattening();
-		es = sqrt(es2);
-		es_over_2 = es / 2.0;
+		e = sqrt(ellipsoid->es());
+		e_over_2 = e / 2.0;
 
-		es_sin = es * sin(lat_orig);
-		t_olat = LAMBERT2_t(lat_orig, es_sin, es_over_2);
+		e_sin = e * sin(lat_orig);
+		t_olat = LAMBERT2_t(lat_orig, e_sin, e_over_2);
 
-		es_sin = es * sin(sp1);
-		m1 = LAMBERT_m(cos(sp1), es_sin);
-		t1 = LAMBERT2_t(sp1, es_sin, es_over_2);
+		e_sin = e * sin(sp1);
+		m1 = LAMBERT_m(cos(sp1), e_sin);
+		t1 = LAMBERT2_t(sp1, e_sin, e_over_2);
 
-		es_sin = es * sin(sp2);
-		m2 = LAMBERT_m(cos(sp2), es_sin);
-		t2 = LAMBERT2_t(sp2, es_sin, es_over_2);
+		e_sin = e * sin(sp2);
+		m2 = LAMBERT_m(cos(sp2), e_sin);
+		t2 = LAMBERT2_t(sp2, e_sin, e_over_2);
 
 		n = log(m1 / m2) / log(t1 / t2);
 
 		lat0 = asin(n);
 
-		es_sin = es * sin(lat0);
-		m0 = LAMBERT_m(cos(lat0), es_sin);
-		t0 = LAMBERT2_t(lat0, es_sin, es_over_2);
+		e_sin = e * sin(lat0);
+		m0 = LAMBERT_m(cos(lat0), e_sin);
+		t0 = LAMBERT2_t(lat0, e_sin, e_over_2);
 
 		k0 = (m1 / m0) * (pow(t0 / t1, n));
 
@@ -266,12 +255,12 @@ LambertConic2::LambertConic2(const Ellipsoid *ellipsoid,
 	  falseEasting, falseNorthing);
 }
 
-QPointF LambertConic2::ll2xy(const Coordinates &c) const
+PointD LambertConic2::ll2xy(const Coordinates &c) const
 {
 	return _lc1.ll2xy(c);
 }
 
-Coordinates LambertConic2::xy2ll(const QPointF &p) const
+Coordinates LambertConic2::xy2ll(const PointD &p) const
 {
 	return _lc1.xy2ll(p);
 }

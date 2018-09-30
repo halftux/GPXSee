@@ -75,7 +75,6 @@ MapView::MapView(Map *map, POI *poi, QWidget *parent)
 	_plot = false;
 	_digitalZoom = 0;
 
-	_map->setBackgroundColor(_backgroundColor);
 	_res = _map->resolution(_map->bounds());
 	_scene->setSceneRect(_map->bounds());
 
@@ -150,7 +149,7 @@ void MapView::addWaypoints(const QList<Waypoint> &waypoints)
 
 		WaypointItem *wi = new WaypointItem(w, _map);
 		_waypoints.append(wi);
-		_wr.unite(wi->waypoint().coordinates());
+		_wr = _wr.united(wi->waypoint().coordinates());
 		wi->setZValue(1);
 		wi->setSize(_waypointSize);
 		wi->setColor(_waypointColor);
@@ -267,7 +266,6 @@ void MapView::setMap(Map *map)
 
 	_map = map;
 	_map->load();
-	_map->setBackgroundColor(_backgroundColor);
 	connect(_map, SIGNAL(loaded()), this, SLOT(reloadMap()));
 
 	digitalZoom(0);
@@ -287,7 +285,9 @@ void MapView::setMap(Map *map)
 		it.value()->setMap(_map);
 	updatePOIVisibility();
 
-	centerOn(_map->ll2xy(cr.center()));
+	QPointF nc = QRectF(_map->ll2xy(cr.topLeft()),
+	  _map->ll2xy(cr.bottomRight())).center();
+	centerOn(nc);
 
 	resetCachedContent();
 	QPixmapCache::clear();
@@ -419,7 +419,7 @@ void MapView::digitalZoom(int zoom)
 	_mapScale->setDigitalZoom(_digitalZoom);
 }
 
-void MapView::zoom(int zoom, const QPoint &pos, const Coordinates &c)
+void MapView::zoom(int zoom, const QPoint &pos)
 {
 	bool shift = QApplication::keyboardModifiers() & Qt::ShiftModifier;
 
@@ -431,9 +431,9 @@ void MapView::zoom(int zoom, const QPoint &pos, const Coordinates &c)
 
 		digitalZoom(zoom);
 	} else {
-		qreal os, ns;
-		os = _map->zoom();
-		ns = (zoom > 0) ? _map->zoomIn() : _map->zoomOut();
+		Coordinates c = _map->xy2ll(mapToScene(pos));
+		qreal os = _map->zoom();
+		qreal ns = (zoom > 0) ? _map->zoomIn() : _map->zoomOut();
 
 		if (ns != os) {
 			rescale();
@@ -454,8 +454,7 @@ void MapView::wheelEvent(QWheelEvent *event)
 		return;
 	deg = 0;
 
-	Coordinates c = _map->xy2ll(mapToScene(event->pos()));
-	zoom((event->delta() > 0) ? 1 : -1, event->pos(), c);
+	zoom((event->delta() > 0) ? 1 : -1, event->pos());
 }
 
 void MapView::mouseDoubleClickEvent(QMouseEvent *event)
@@ -463,8 +462,7 @@ void MapView::mouseDoubleClickEvent(QMouseEvent *event)
 	if (event->button() != Qt::LeftButton && event->button() != Qt::RightButton)
 		return;
 
-	Coordinates c = _map->xy2ll(mapToScene(event->pos()));
-	zoom((event->button() == Qt::LeftButton) ? 1 : -1, event->pos(), c);
+	zoom((event->button() == Qt::LeftButton) ? 1 : -1, event->pos());
 }
 #ifdef Q_WS_MAEMO_5
 void MapView::mousePressEvent(QMouseEvent *e)
@@ -476,24 +474,19 @@ void MapView::mousePressEvent(QMouseEvent *e)
 }
 void MapView::zoom_maemo(QString direction)
 {
-	qreal os, ns;
-	int z;
+	int zoom;
+		if (direction=="in") zoom = 1;
+		else zoom = -1;
 
-	os = _map->zoom();
-	QPoint pos = QRect(QPoint(), viewport()->size()).center();
-	Coordinates c = _map->xy2ll(mapToScene(pos));
-	if (direction=="in")
-	{
-		ns = _map->zoomIn();
-		z = 1;
-	}
-	else
-	{
-		ns = _map->zoomOut();
-		z = -1;
-	}
-	if (ns != os)
-		zoom(z, pos, c);
+		QPoint pos = QRect(QPoint(), viewport()->size()).center();
+		Coordinates c = _map->xy2ll(mapToScene(pos));
+		qreal os = _map->zoom();
+		qreal ns = (zoom > 0) ? _map->zoomIn() : _map->zoomOut();
+
+		if (ns != os) {
+			rescale();
+			centerOn(_map->ll2xy(c) - (pos - viewport()->rect().center()));
+		}
 }
 void MapView::setRescale(bool rescale)
 {
@@ -507,7 +500,6 @@ void MapView::keyPressEvent(QKeyEvent *event)
 	int z;
 
 	QPoint pos = viewport()->rect().center();
-	Coordinates c = _map->xy2ll(mapToScene(pos));
 
 #ifdef Q_WS_MAEMO_5
 	if (event->key()==Qt::Key_F7)
@@ -517,10 +509,20 @@ void MapView::keyPressEvent(QKeyEvent *event)
 	else if (_digitalZoom && event->key() == Qt::Key_Escape) {
 		digitalZoom(0);
 		return;}
-#else
-	if (event->matches(ZOOM_IN))
+
+	if (event->key() == Qt::Key_O)
 		z = 1;
-	else if (event->matches(ZOOM_OUT))
+	else if (event->key() == Qt::Key_L)
+		z = -1;
+	else if (_digitalZoom && event->key() == Qt::Key_Escape) {
+		digitalZoom(0);
+		return;
+	}
+
+#else
+	if (event->key() == ZOOM_IN)
+		z = 1;
+	else if (event->key() == ZOOM_OUT)
 		z = -1;
 	else if (_digitalZoom && event->key() == Qt::Key_Escape) {
 		digitalZoom(0);
@@ -532,7 +534,7 @@ void MapView::keyPressEvent(QKeyEvent *event)
 		return;
 	}
 
-	zoom(z, pos, c);
+	zoom(z, pos);
 }
 
 void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
@@ -541,13 +543,12 @@ void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
 	QRect orig, adj;
 	qreal ratio, diff, q;
 	QPointF origScene, origPos;
-	RectC origC;
+	int zoom;
 
 
 	// Enter plot mode
 	setUpdatesEnabled(false);
 	_plot = true;
-	_map->setBlockingMode(true);
 
 	// Compute sizes & ratios
 	orig = viewport()->rect();
@@ -566,8 +567,8 @@ void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
 
 	// Adjust the view for printing
 	if (hires) {
+		zoom = _map->zoom();
 		QRectF vr(mapToScene(orig).boundingRect());
-		origC = RectC(_map->xy2ll(vr.topLeft()), _map->xy2ll(vr.bottomRight()));
 		origScene = vr.center();
 
 		QPointF s(painter->device()->logicalDpiX()
@@ -582,12 +583,12 @@ void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
 		centerOn(center);
 		adj.moveCenter(mapFromScene(center));
 
-		_mapScale->setDigitalZoom(-log2(s.x() / q));
+		_mapScale->setDigitalZoom(_digitalZoom - log2(s.x() / q));
 		_mapScale->setPos(mapToScene(QPoint(adj.bottomRight() + QPoint(
 		  -(SCALE_OFFSET + _mapScale->boundingRect().width()) * (s.x() / q),
 		  -(SCALE_OFFSET + _mapScale->boundingRect().height()) * (s.x() / q)))));
 	} else {
-		_mapScale->setDigitalZoom(-log2(1.0 / q));
+		_mapScale->setDigitalZoom(_digitalZoom - log2(1.0 / q));
 		_mapScale->setPos(mapToScene(QPoint(adj.bottomRight() + QPoint(
 		  -(SCALE_OFFSET + _mapScale->boundingRect().width()) / q ,
 		  -(SCALE_OFFSET + _mapScale->boundingRect().height()) / q))));
@@ -598,15 +599,14 @@ void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
 
 	// Revert view changes to display mode
 	if (hires) {
-		_map->zoomFit(orig.size(), origC);
+		_map->setZoom(zoom);
 		rescale();
 		centerOn(origScene);
 	}
-	_mapScale->setDigitalZoom(0);
+	_mapScale->setDigitalZoom(_digitalZoom);
 	_mapScale->setPos(origPos);
 
 	// Exit plot mode
-	_map->setBlockingMode(false);
 	_plot = false;
 	setUpdatesEnabled(true);
 }
@@ -795,7 +795,6 @@ void MapView::setMapOpacity(int opacity)
 void MapView::setBackgroundColor(const QColor &color)
 {
 	_backgroundColor = color;
-	_map->setBackgroundColor(color);
 	resetCachedContent();
 }
 
@@ -807,7 +806,7 @@ void MapView::drawBackground(QPainter *painter, const QRectF &rect)
 		QRectF ir = rect.intersected(_map->bounds());
 		if (_opacity < 1.0)
 			painter->setOpacity(_opacity);
-		_map->draw(painter, ir);
+		_map->draw(painter, ir, _plot);
 	}
 }
 

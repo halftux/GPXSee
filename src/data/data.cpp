@@ -8,6 +8,7 @@
 #include "fitparser.h"
 #include "igcparser.h"
 #include "nmeaparser.h"
+#include "oziparsers.h"
 #include "data.h"
 
 
@@ -18,6 +19,9 @@ static FITParser fit;
 static CSVParser csv;
 static IGCParser igc;
 static NMEAParser nmea;
+static PLTParser plt;
+static WPTParser wpt;
+static RTEParser rte;
 
 static QHash<QString, Parser*> parsers()
 {
@@ -30,6 +34,9 @@ static QHash<QString, Parser*> parsers()
 	hash.insert("csv", &csv);
 	hash.insert("igc", &igc);
 	hash.insert("nmea", &nmea);
+	hash.insert("plt", &plt);
+	hash.insert("wpt", &wpt);
+	hash.insert("rte", &rte);
 
 	return hash;
 }
@@ -100,11 +107,13 @@ bool Data::loadFile(const QString &fileName)
 QString Data::formats()
 {
 	return
-	  tr("Supported files") + " (*.csv *.fit *.gpx *.igc *.kml *.nmea *.tcx);;"
+	  tr("Supported files")
+	  + " (*.csv *.fit *.gpx *.igc *.kml *.nmea *.plt *.rte *.tcx *.wpt);;"
 	  + tr("CSV files") + " (*.csv);;" + tr("FIT files") + " (*.fit);;"
 	  + tr("GPX files") + " (*.gpx);;" + tr("IGC files") + " (*.igc);;"
 	  + tr("KML files") + " (*.kml);;" + tr("NMEA files") + " (*.nmea);;"
-	  + tr("TCX files") + " (*.tcx);;" + tr("All files") + "(*)";
+	  + tr("OziExplorer files") + " (*.plt *.rte *.wpt);;"
+	  + tr("TCX files") + " (*.tcx);;" + tr("All files") + " (*)";
 }
 
 QStringList Data::filter()

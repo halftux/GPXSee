@@ -14,8 +14,8 @@ public:
 
 	virtual CT *clone() const {return new AlbersEqual(*this);}
 
-	virtual QPointF ll2xy(const Coordinates &c) const;
-	virtual Coordinates xy2ll(const QPointF &p) const;
+	virtual PointD ll2xy(const Coordinates &c) const;
+	virtual Coordinates xy2ll(const PointD &p) const;
 
 private:
 	double _latitudeOrigin;
@@ -27,11 +27,11 @@ private:
 	double _rho0;
 	double _C;
 	double _n;
+	double _e;
 	double _es;
-	double _es2;
 	double _a_over_n;
-	double _one_minus_es2;
-	double _two_es;
+	double _one_minus_es;
+	double _two_e;
 };
 
 #endif // ALBERSEQUAL_H

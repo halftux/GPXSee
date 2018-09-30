@@ -5,7 +5,6 @@
 #include <QSslConfiguration>
 #endif
 #include <QNetworkRequest>
-#include <QNetworkReply>
 #include <QBasicTimer>
 #include "config.h"
 #include "downloader.h"
@@ -30,7 +29,7 @@
 #define ATTR_LEVEL    (QNetworkRequest::Attribute)(QNetworkRequest::User + 2)
 
 #define MAX_REDIRECT_LEVEL 5
-#define TIMEOUT            30 /* s */
+#define RETRIES 3
 
 
 Authorization::Authorization(const QString &username, const QString &password)
@@ -84,20 +83,24 @@ private:
 };
 
 
-Downloader::Downloader(QObject *parent) : QObject(parent)
-{
-	connect(&_manager, SIGNAL(finished(QNetworkReply*)),
-	  SLOT(downloadFinished(QNetworkReply*)));
-}
+QNetworkAccessManager *Downloader::_manager = 0;
+int Downloader::_timeout = 30;
 
 bool Downloader::doDownload(const Download &dl,
   const QByteArray &authorization, const Redirect *redirect)
 {
 	QUrl url(dl.url());
 
-	if (_errorDownloads.contains(url))
+	if (!url.isValid() || !(url.scheme() == "http" || url.scheme() == "https")) {
+		qWarning("%s: Invalid URL\n", qPrintable(url.toString()));
+		if (redirect)
+			_errorDownloads.insert(redirect->origin(), RETRIES);
 		return false;
-	if (_currentDownloads.contains(url))
+	}
+
+	if (_errorDownloads.value(url) >= RETRIES)
+		return false;
+	if (_currentDownloads.contains(url) && !redirect)
 		return false;
 
 	QNetworkRequest request(url);
@@ -122,13 +125,17 @@ bool Downloader::doDownload(const Download &dl,
 	if (!authorization.isNull())
 		request.setRawHeader("Authorization", authorization);
 
-	QNetworkReply *reply = _manager.get(request);
+	QNetworkReply *reply = _manager->get(request);
 	connect(reply, SIGNAL(error(QNetworkReply::NetworkError)), this, SLOT(slotError(QNetworkReply::NetworkError)));
 	connect(reply, SIGNAL(sslErrors(QList<QSslError>)), this, SLOT(slotsslErrors(QList<QSslError>)));
-	if (reply) {
+
+	if (reply && reply->isRunning()) {
 		_currentDownloads.insert(url);
-		ReplyTimeout::setTimeout(reply, TIMEOUT);
-	} else
+		ReplyTimeout::setTimeout(reply, _timeout);
+		connect(reply, SIGNAL(finished()), this, SLOT(emitFinished()));
+	} else if (reply)
+		downloadFinished(reply);
+	else
 		return false;
 
 	return true;
@@ -142,6 +149,11 @@ void Downloader::slotError(QNetworkReply::NetworkError d)
 void Downloader::slotsslErrors(const QList<QSslError> &elist)
 {
 	qDebug() << "sslerror: " << elist;
+}
+
+void Downloader::emitFinished()
+{
+	downloadFinished(static_cast<QNetworkReply*>(sender()));
 }
 
 bool Downloader::saveToDisk(const QString &filename, QIODevice *data)
@@ -160,18 +172,27 @@ bool Downloader::saveToDisk(const QString &filename, QIODevice *data)
 	return true;
 }
 
+void Downloader::insertError(const QUrl &url, QNetworkReply::NetworkError error)
+{
+	if (error == QNetworkReply::OperationCanceledError)
+		_errorDownloads.insert(url, _errorDownloads.value(url) + 1);
+	else
+		_errorDownloads.insert(url, RETRIES);
+}
+
 void Downloader::downloadFinished(QNetworkReply *reply)
 {
 	QUrl url = reply->request().url();
+	QNetworkReply::NetworkError error = reply->error();
 
-	if (reply->error()) {
+	if (error) {
 		QUrl origin = reply->request().attribute(ATTR_ORIGIN).toUrl();
 		if (origin.isEmpty()) {
-			_errorDownloads.insert(url);
+			insertError(url, error);
 			qWarning("Error downloading file: %s: %s\n",
 			  url.toEncoded().constData(), qPrintable(reply->errorString()));
 		} else {
-			_errorDownloads.insert(origin);
+			insertError(origin, error);
 			qWarning("Error downloading file: %s -> %s: %s\n",
 			  origin.toEncoded().constData(), url.toEncoded().constData(),
 			  qPrintable(reply->errorString()));
@@ -185,24 +206,29 @@ void Downloader::downloadFinished(QNetworkReply *reply)
 			QUrl origin = reply->request().attribute(ATTR_ORIGIN).toUrl();
 			int level = reply->request().attribute(ATTR_LEVEL).toInt();
 
-			if (location == url) {
-				_errorDownloads.insert(url);
+			if (level >= MAX_REDIRECT_LEVEL) {
+				_errorDownloads.insert(origin, RETRIES);
 				qWarning("Error downloading file: %s: "
-				  "redirect loop\n", url.toEncoded().constData());
-			} else if (level >= MAX_REDIRECT_LEVEL) {
-				_errorDownloads.insert(origin);
-				qWarning("Error downloading file: %s: "
-				  "redirect level limit reached\n",
+				  "redirect level limit reached (redirect loop?)\n",
 				  origin.toEncoded().constData());
 			} else {
+				QUrl redirectUrl;
+				if (location.isRelative()) {
+					QString path = QDir::isAbsolutePath(location.path())
+					  ? location.path() : "/" + location.path();
+					redirectUrl = QUrl(url.scheme() + "://" + url.host() + path);
+				} else
+					redirectUrl = location;
+
 				Redirect redirect(origin.isEmpty() ? url : origin, level + 1);
-				Download dl(location, filename);
+				Download dl(redirectUrl, filename);
 				doDownload(dl, reply->request().rawHeader("Authorization"),
 				  &redirect);
 			}
-		} else
+		} else {
 			if (!saveToDisk(filename, reply))
-				_errorDownloads.insert(url);
+				_errorDownloads.insert(url, RETRIES);
+		}
 	}
 
 	_currentDownloads.remove(url);

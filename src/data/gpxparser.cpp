@@ -51,6 +51,15 @@ Coordinates GPXParser::coordinates()
 	return Coordinates(lon, lat);
 }
 
+void GPXParser::rpExtension(TrackData *autoRoute)
+{
+	while (_reader.readNextStartElement()) {
+		if (_reader.name() == "rpt")
+			autoRoute->append(Trackpoint(coordinates()));
+		_reader.skipCurrentElement();
+	}
+}
+
 void GPXParser::tpExtension(Trackpoint &trackpoint)
 {
 	while (_reader.readNextStartElement()) {
@@ -63,7 +72,17 @@ void GPXParser::tpExtension(Trackpoint &trackpoint)
 	}
 }
 
-void GPXParser::extensions(Trackpoint &trackpoint)
+void GPXParser::rteptExtensions(TrackData *autoRoute)
+{
+	while (_reader.readNextStartElement()) {
+		if (_reader.name() == "RoutePointExtension")
+			rpExtension(autoRoute);
+		else
+			_reader.skipCurrentElement();
+	}
+}
+
+void GPXParser::trkptExtensions(Trackpoint &trackpoint)
 {
 	while (_reader.readNextStartElement()) {
 		if (_reader.name() == "speed")
@@ -95,7 +114,7 @@ void GPXParser::trackpointData(Trackpoint &trackpoint)
 		else if (_reader.name() == "geoidheight")
 			gh = number();
 		else if (_reader.name() == "extensions")
-			extensions(trackpoint);
+			trkptExtensions(trackpoint);
 		else
 			_reader.skipCurrentElement();
 	}
@@ -104,7 +123,7 @@ void GPXParser::trackpointData(Trackpoint &trackpoint)
 		trackpoint.setElevation(trackpoint.elevation() - gh);
 }
 
-void GPXParser::waypointData(Waypoint &waypoint)
+void GPXParser::waypointData(Waypoint &waypoint, TrackData *autoRoute)
 {
 	qreal gh = NAN;
 
@@ -119,6 +138,8 @@ void GPXParser::waypointData(Waypoint &waypoint)
 			gh = number();
 		else if (_reader.name() == "time")
 			waypoint.setTimestamp(time());
+		else if (autoRoute && _reader.name() == "extensions")
+			rteptExtensions(autoRoute);
 		else
 			_reader.skipCurrentElement();
 	}
@@ -138,18 +159,26 @@ void GPXParser::trackpoints(TrackData &track)
 	}
 }
 
-void GPXParser::routepoints(RouteData &route)
+void GPXParser::routepoints(RouteData &route, QList<TrackData> &tracks)
 {
+	TrackData autoRoute;
+
 	while (_reader.readNextStartElement()) {
 		if (_reader.name() == "rtept") {
 			route.append(Waypoint(coordinates()));
-			waypointData(route.last());
+			waypointData(route.last(), &autoRoute);
 		} else if (_reader.name() == "name")
 			route.setName(_reader.readElementText());
 		else if (_reader.name() == "desc")
 			route.setDescription(_reader.readElementText());
 		else
 			_reader.skipCurrentElement();
+	}
+
+	if (!autoRoute.isEmpty()) {
+		autoRoute.setName(route.name());
+		autoRoute.setDescription(route.description());
+		tracks.append(autoRoute);
 	}
 }
 
@@ -176,7 +205,7 @@ void GPXParser::gpx(QList<TrackData> &tracks, QList<RouteData> &routes,
 			track(tracks.back());
 		} else if (_reader.name() == "rte") {
 			routes.append(RouteData());
-			routepoints(routes.back());
+			routepoints(routes.back(), tracks);
 		} else if (_reader.name() == "wpt") {
 			waypoints.append(Waypoint(coordinates()));
 			waypointData(waypoints.last());
@@ -190,6 +219,7 @@ bool GPXParser::parse(QFile *file, QList<TrackData> &tracks,
 {
 	_reader.clear();
 	_reader.setDevice(file);
+	_reader.setNamespaceProcessing(false);
 
 	if (_reader.readNextStartElement()) {
 		if (_reader.name() == "gpx")

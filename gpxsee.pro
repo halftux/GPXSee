@@ -1,6 +1,6 @@
 
 TARGET = gpxsee
-VERSION = 5.6
+VERSION = 5.13
 
 QT += core \
     gui \
@@ -19,6 +19,7 @@ HEADERS += src/config.h \
     src/common/rectc.h \
     src/common/wgs84.h \
     src/common/str2int.h \
+    src/common/rtree.h \
     src/GUI/app.h \
     src/GUI/icons.h \
     src/GUI/gui.h \
@@ -73,7 +74,7 @@ HEADERS += src/config.h \
     src/map/projection.h \
     src/map/ellipsoid.h \
     src/map/datum.h \
-    src/map/mercator.h \
+    src/map/webmercator.h \
     src/map/transversemercator.h \
     src/map/latlon.h \
     src/map/utm.h \
@@ -96,25 +97,6 @@ HEADERS += src/config.h \
     src/map/transform.h \
     src/map/mapfile.h \
     src/map/tifffile.h \
-    src/data/graph.h \
-    src/data/poi.h \
-    src/data/waypoint.h \
-    src/data/track.h \
-    src/data/route.h \
-    src/data/trackpoint.h \
-    src/data/data.h \
-    src/data/parser.h \
-    src/data/trackdata.h \
-    src/data/routedata.h \
-    src/data/path.h \
-    src/data/rtree.h \
-    src/data/gpxparser.h \
-    src/data/tcxparser.h \
-    src/data/csvparser.h \
-    src/data/kmlparser.h \
-    src/data/fitparser.h \
-    src/data/igcparser.h \
-    src/data/nmeaparser.h \
     src/map/gcs.h \
     src/map/angularunits.h \
     src/map/primemeridian.h \
@@ -127,7 +109,32 @@ HEADERS += src/config.h \
     src/map/wmsmap.h \
     src/map/wms.h \
     src/map/crs.h \
-    src/map/coordinatesystem.h
+    src/map/coordinatesystem.h \
+    src/map/pointd.h \
+    src/data/graph.h \
+    src/data/poi.h \
+    src/data/waypoint.h \
+    src/data/track.h \
+    src/data/route.h \
+    src/data/trackpoint.h \
+    src/data/data.h \
+    src/data/parser.h \
+    src/data/trackdata.h \
+    src/data/routedata.h \
+    src/data/path.h \
+    src/data/gpxparser.h \
+    src/data/tcxparser.h \
+    src/data/csvparser.h \
+    src/data/kmlparser.h \
+    src/data/fitparser.h \
+    src/data/igcparser.h \
+    src/data/nmeaparser.h \
+    src/data/oziparsers.h \
+    src/map/rectd.h \
+    src/map/geocentric.h \
+    src/map/mercator.h \
+    src/map/jnxmap.h \
+    src/map/krovak.h
 SOURCES += src/main.cpp \
     src/common/coordinates.cpp \
     src/common/rectc.cpp \
@@ -185,7 +192,7 @@ SOURCES += src/main.cpp \
     src/map/matrix.cpp \
     src/map/ellipsoid.cpp \
     src/map/datum.cpp \
-    src/map/mercator.cpp \
+    src/map/webmercator.cpp \
     src/map/transversemercator.cpp \
     src/map/utm.cpp \
     src/map/lambertconic.cpp \
@@ -196,18 +203,6 @@ SOURCES += src/main.cpp \
     src/map/transform.cpp \
     src/map/mapfile.cpp \
     src/map/tifffile.cpp \
-    src/data/data.cpp \
-    src/data/poi.cpp \
-    src/data/track.cpp \
-    src/data/route.cpp \
-    src/data/path.cpp \
-    src/data/gpxparser.cpp \
-    src/data/tcxparser.cpp \
-    src/data/csvparser.cpp \
-    src/data/kmlparser.cpp \
-    src/data/fitparser.cpp \
-    src/data/igcparser.cpp \
-    src/data/nmeaparser.cpp \
     src/map/projection.cpp \
     src/map/gcs.cpp \
     src/map/angularunits.cpp \
@@ -220,14 +215,33 @@ SOURCES += src/main.cpp \
     src/map/wmsmap.cpp \
     src/map/wms.cpp \
     src/map/crs.cpp \
-    src/map/coordinatesystem.cpp
+    src/map/coordinatesystem.cpp \
+    src/data/data.cpp \
+    src/data/poi.cpp \
+    src/data/track.cpp \
+    src/data/route.cpp \
+    src/data/path.cpp \
+    src/data/gpxparser.cpp \
+    src/data/tcxparser.cpp \
+    src/data/csvparser.cpp \
+    src/data/kmlparser.cpp \
+    src/data/fitparser.cpp \
+    src/data/igcparser.cpp \
+    src/data/nmeaparser.cpp \
+    src/data/oziparsers.cpp \
+    src/map/geocentric.cpp \
+    src/map/mercator.cpp \
+    src/map/jnxmap.cpp \
+    src/map/krovak.cpp
 RESOURCES += gpxsee.qrc
 !maemo5: TRANSLATIONS = lang/gpxsee_cs.ts \
     lang/gpxsee_sv.ts \
     lang/gpxsee_de.ts \
     lang/gpxsee_ru.ts \
     lang/gpxsee_fi.ts \
-    lang/gpxsee_fr.ts
+    lang/gpxsee_fr.ts \
+    lang/gpxsee_pl.ts
+
 maemo5 {
 SOURCES +=     src/GUI/expdialog.cpp \
     src/GUI/optdialog.cpp
@@ -241,6 +255,7 @@ FORMS += \
     src/GUI/expdialog.ui \
     src/GUI/optdialog.ui
 }
+
 macx {
     ICON = icons/gpxsee.icns
     QMAKE_INFO_PLIST = pkg/Info.plist
@@ -250,17 +265,22 @@ macx {
         lang/gpxsee_fi.qm \
         lang/gpxsee_fr.qm \
         lang/gpxsee_ru.qm \
-        lang/gpxsee_sv.qm
+        lang/gpxsee_sv.qm \
+        lang/gpxsee_pl.qm
     CSV.path = Contents/Resources
     CSV.files = pkg/csv
     MAPS.path = Contents/Resources
     MAPS.files = pkg/maps
     ICONS.path = Contents/Resources/icons
-    ICONS.files = icons/tcx.icns \
+    ICONS.files = icons/gpx.icns \
+        icons/tcx.icns \
         icons/kml.icns \
         icons/fit.icns \
         icons/igc.icns \
-        icons/nmea.icns
+        icons/nmea.icns \
+        icons/plt.icns \
+        icons/rte.icns \
+        icons/wpt.icns
     QMAKE_BUNDLE_DATA += LOCALE MAPS ICONS CSV
 }
 win32 {
@@ -270,7 +290,11 @@ win32 {
         icons/kml.ico \
         icons/fit.ico \
         icons/igc.ico \
-        icons/nmea.ico
+        icons/nmea.ico \
+        icons/plt.ico \
+        icons/rte.ico \
+        icons/wpt.ico
+    DEFINES += _USE_MATH_DEFINES
 }
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 
