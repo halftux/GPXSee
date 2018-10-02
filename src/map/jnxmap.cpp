@@ -1,8 +1,11 @@
 #include <QtEndian>
 #include <QPainter>
 #include <QFileInfo>
-#include "transform.h"
+#include <QPixmapCache>
 #include "rectd.h"
+#include "gcs.h"
+#include "pcs.h"
+#include "config.h"
 #include "jnxmap.h"
 
 
@@ -17,8 +20,10 @@ struct Level {
 struct Ctx {
 	QPainter *painter;
 	QFile *file;
+	qreal ratio;
 
-	Ctx(QPainter *painter, QFile *file) : painter(painter), file(file) {}
+	Ctx(QPainter *painter, QFile *file, qreal ratio)
+	  : painter(painter), file(file), ratio(ratio) {}
 };
 
 
@@ -82,6 +87,15 @@ bool JNXMap::readTiles()
 		}
 	}
 
+	QByteArray guid;
+	if (!(readValue(dummy) && readString(guid)))
+		return false;
+	/* Use WebMercator projection for nakarte.tk maps */
+	if (guid == "12345678-1234-1234-1234-123456789ABC")
+		_projection = Projection(PCS::pcs(3857));
+	else
+		_projection = Projection(GCS::gcs(4326));
+
 	_zooms = QVector<Zoom>(lh.size());
 	for (int i = 0; i < lh.count(); i++) {
 		Zoom &z = _zooms[i];
@@ -102,8 +116,8 @@ bool JNXMap::readTiles()
 			  && readValue(tile.offset)))
 				return false;
 
-			RectD rect(PointD(ic2dc(left), ic2dc(top)), PointD(ic2dc(right),
-			  ic2dc(bottom)));
+			RectD rect(_projection.ll2xy(Coordinates(ic2dc(left), ic2dc(top))),
+			  _projection.ll2xy(Coordinates(ic2dc(right), ic2dc(bottom))));
 
 			if (j == 0) {
 				ReferencePoint tl(PointD(0, 0), rect.topLeft());
@@ -128,7 +142,7 @@ bool JNXMap::readTiles()
 }
 
 JNXMap::JNXMap(const QString &fileName, QObject *parent)
-  : Map(parent), _file(fileName), _zoom(0), _valid(false)
+  : Map(parent), _file(fileName), _zoom(0), _ratio(1.0), _valid(false)
 {
 	_name = QFileInfo(fileName).fileName();
 
@@ -145,37 +159,21 @@ JNXMap::JNXMap(const QString &fileName, QObject *parent)
 	_valid = true;
 }
 
-QPointF JNXMap::ll2xy(const Coordinates &c) const
+QPointF JNXMap::ll2xy(const Coordinates &c)
 {
-	const Transform &t = _zooms.at(_zoom).transform;
-	return t.proj2img(PointD(c.lon(), c.lat()));
+	const Zoom &z = _zooms.at(_zoom);
+	return z.transform.proj2img(_projection.ll2xy(c)) / _ratio;
 }
 
-Coordinates JNXMap::xy2ll(const QPointF &p) const
+Coordinates JNXMap::xy2ll(const QPointF &p)
 {
-	const Transform &t = _zooms.at(_zoom).transform;
-	PointD pp(t.img2proj(p));
-	return Coordinates(pp.x(), pp.y());
+	const Zoom &z = _zooms.at(_zoom);
+	return _projection.xy2ll(z.transform.img2proj(p * _ratio));
 }
 
-QRectF JNXMap::bounds() const
+QRectF JNXMap::bounds()
 {
-	const Transform &t = _zooms.at(_zoom).transform;
-
-	return QRectF(t.proj2img(PointD(_bounds.topLeft().lon(),
-	  _bounds.topLeft().lat())), t.proj2img(PointD(_bounds.bottomRight().lon(),
-	  _bounds.bottomRight().lat())));
-}
-
-qreal JNXMap::resolution(const QRectF &rect) const
-{
-	Coordinates tl = xy2ll((rect.topLeft()));
-	Coordinates br = xy2ll(rect.bottomRight());
-
-	qreal ds = tl.distanceTo(br);
-	qreal ps = QLineF(rect.topLeft(), rect.bottomRight()).length();
-
-	return ds/ps;
+	return QRectF(ll2xy(_bounds.topLeft()), ll2xy(_bounds.bottomRight()));
 }
 
 int JNXMap::zoomFit(const QSize &size, const RectC &rect)
@@ -212,38 +210,52 @@ int JNXMap::zoomOut()
 
 QPixmap JNXMap::pixmap(const Tile *tile, QFile *file)
 {
-	QByteArray ba;
-	ba.resize(tile->size + 2);
-	ba[0] = (char)0xFF;
-	ba[1] = (char)0xD8;
-	char *data = ba.data() + 2;
+	QPixmap pm;
 
-	if (!file->seek(tile->offset))
-		return QPixmap();
-	if (!file->read(data, tile->size))
-		return QPixmap();
+	QString key = file->fileName() + "-" + QString::number(tile->offset);
+	if (!QPixmapCache::find(key, &pm)) {
+		QByteArray ba;
+		ba.resize(tile->size + 2);
+		ba[0] = (char)0xFF;
+		ba[1] = (char)0xD8;
+		char *data = ba.data() + 2;
 
-	return QPixmap::fromImage(QImage::fromData(ba));
+		if (!file->seek(tile->offset))
+			return QPixmap();
+		if (!file->read(data, tile->size))
+			return QPixmap();
+		pm = QPixmap::fromImage(QImage::fromData(ba));
+
+		if (!pm.isNull())
+			QPixmapCache::insert(key, pm);
+	}
+
+	return pm;
 }
 
 bool JNXMap::cb(Tile *tile, void *context)
 {
 	Ctx *ctx = static_cast<Ctx*>(context);
-	ctx->painter->drawPixmap(tile->pos, pixmap(tile, ctx->file));
+	QPixmap pm(pixmap(tile, ctx->file));
+#ifdef ENABLE_HIDPI
+	pm.setDevicePixelRatio(ctx->ratio);
+#endif // ENABLE_HIDPI
+	ctx->painter->drawPixmap(tile->pos / ctx->ratio, pm);
 
 	return true;
 }
 
-void JNXMap::draw(QPainter *painter, const QRectF &rect, bool block)
+void JNXMap::draw(QPainter *painter, const QRectF &rect, Flags flags)
 {
-	Q_UNUSED(block);
+	Q_UNUSED(flags);
 	const RTree<Tile*, qreal, 2> &tree = _zooms.at(_zoom).tree;
-	Ctx ctx(painter, &_file);
+	Ctx ctx(painter, &_file, _ratio);
+	QRectF rr(rect.topLeft() * _ratio, rect.size() * _ratio);
 
 	qreal min[2], max[2];
-	min[0] = rect.left();
-	min[1] = rect.top();
-	max[0] = rect.right();
-	max[1] = rect.bottom();
+	min[0] = rr.left();
+	min[1] = rr.top();
+	max[0] = rr.right();
+	max[1] = rr.bottom();
 	tree.Search(min, max, cb, &ctx);
 }

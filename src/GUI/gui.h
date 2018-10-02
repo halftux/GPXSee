@@ -6,7 +6,6 @@
 #include <QDate>
 #include <QPrinter>
 #include "data/graph.h"
-#include "data/poi.h"
 #include "units.h"
 #include "timetype.h"
 #include "format.h"
@@ -32,6 +31,8 @@ class GraphTab;
 class MapView;
 class Map;
 class MapList;
+class POI;
+class QScreen;
 
 class GUI : public QMainWindow
 {
@@ -39,9 +40,9 @@ class GUI : public QMainWindow
 
 public:
 	GUI();
-	~GUI();
 
 	bool openFile(const QString &fileName);
+	void show();
 
 private slots:
 #ifdef Q_WS_MAEMO_5
@@ -63,6 +64,7 @@ private slots:
 	void openFile();
 	void closeAll();
 	void reloadFile();
+	void statistics();
 	void openPOIFile();
 	void closePOIFiles();
 	void showGraphs(bool show);
@@ -98,6 +100,8 @@ private slots:
 	void setDMS() {setCoordinatesFormat(DMS);}
 
 	void sliderPositionChanged(qreal pos);
+	void screenChanged(QScreen *screen);
+	void logicalDotsPerInchChanged(qreal dpi);
 
 private:
 #ifdef Q_WS_MAEMO_5
@@ -176,6 +180,7 @@ private:
 	QAction *_openFileAction;
 	QAction *_closeFileAction;
 	QAction *_reloadFileAction;
+	QAction *_statisticsAction;
 	QAction *_openPOIAction;
 	QAction *_closePOIAction;
 	QAction *_showPOIAction;

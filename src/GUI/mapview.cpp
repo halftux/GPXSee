@@ -29,7 +29,6 @@ MapView::MapView(Map *map, POI *poi, QWidget *parent)
 
 	_scene = new QGraphicsScene(this);
 	setScene(_scene);
-	setCacheMode(QGraphicsView::CacheBackground);
 	setDragMode(QGraphicsView::ScrollHandDrag);
 	setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
 	setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -72,6 +71,10 @@ MapView::MapView(Map *map, POI *poi, QWidget *parent)
 	_poiSize = 8;
 	_poiColor = Qt::black;
 
+#ifdef ENABLE_HIDPI
+	_ratio = 1.0;
+#endif // ENABLE_HIDPI
+	_opengl = false;
 	_plot = false;
 	_digitalZoom = 0;
 
@@ -228,7 +231,7 @@ void MapView::updatePOIVisibility()
 void MapView::rescale()
 {
 	_scene->setSceneRect(_map->bounds());
-	resetCachedContent();
+	reloadMap();
 
 	for (int i = 0; i < _tracks.size(); i++)
 		_tracks.at(i)->setMap(_map);
@@ -266,6 +269,9 @@ void MapView::setMap(Map *map)
 
 	_map = map;
 	_map->load();
+#ifdef ENABLE_HIDPI
+	_map->setDevicePixelRatio(_ratio);
+#endif // ENABLE_HIDPI
 	connect(_map, SIGNAL(loaded()), this, SLOT(reloadMap()));
 
 	digitalZoom(0);
@@ -289,7 +295,7 @@ void MapView::setMap(Map *map)
 	  _map->ll2xy(cr.bottomRight())).center();
 	centerOn(nc);
 
-	resetCachedContent();
+	reloadMap();
 	QPixmapCache::clear();
 }
 
@@ -549,6 +555,9 @@ void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
 	// Enter plot mode
 	setUpdatesEnabled(false);
 	_plot = true;
+#ifdef ENABLE_HIDPI
+	_map->setDevicePixelRatio(1.0);
+#endif // ENABLE_HIDPI
 
 	// Compute sizes & ratios
 	orig = viewport()->rect();
@@ -607,6 +616,9 @@ void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
 	_mapScale->setPos(origPos);
 
 	// Exit plot mode
+#ifdef ENABLE_HIDPI
+	_map->setDevicePixelRatio(_ratio);
+#endif // ENABLE_HIDPI
 	_plot = false;
 	setUpdatesEnabled(true);
 }
@@ -686,7 +698,7 @@ void MapView::showRouteWaypoints(bool show)
 void MapView::showMap(bool show)
 {
 	_showMap = show;
-	resetCachedContent();
+	reloadMap();
 }
 
 void MapView::showPOI(bool show)
@@ -789,13 +801,13 @@ void MapView::setPOIColor(const QColor &color)
 void MapView::setMapOpacity(int opacity)
 {
 	_opacity = opacity / 100.0;
-	resetCachedContent();
+	reloadMap();
 }
 
 void MapView::setBackgroundColor(const QColor &color)
 {
 	_backgroundColor = color;
-	resetCachedContent();
+	reloadMap();
 }
 
 void MapView::drawBackground(QPainter *painter, const QRectF &rect)
@@ -804,9 +816,17 @@ void MapView::drawBackground(QPainter *painter, const QRectF &rect)
 
 	if (_showMap) {
 		QRectF ir = rect.intersected(_map->bounds());
+		Map::Flags flags = Map::NoFlags;
+
 		if (_opacity < 1.0)
 			painter->setOpacity(_opacity);
-		_map->draw(painter, ir, _plot);
+
+		if (_plot)
+			flags = Map::Block;
+		else if (_opengl)
+			flags = Map::OpenGL;
+
+		_map->draw(painter, ir, flags);
 	}
 }
 
@@ -856,6 +876,8 @@ void MapView::scrollContentsBy(int dx, int dy)
 
 void MapView::useOpenGL(bool use)
 {
+	_opengl = use;
+
 	if (use)
 		setViewport(new OPENGL_WIDGET);
 	else
@@ -879,5 +901,42 @@ void MapView::setMarkerColor(const QColor &color)
 
 void MapView::reloadMap()
 {
-	resetCachedContent();
+	_scene->invalidate();
+}
+
+void MapView::setDevicePixelRatio(qreal ratio)
+{
+#ifdef ENABLE_HIDPI
+	if (_ratio == ratio)
+		return;
+
+	_ratio = ratio;
+
+	QRectF vr(mapToScene(viewport()->rect()).boundingRect()
+	  .intersected(_map->bounds()));
+	RectC cr(_map->xy2ll(vr.topLeft()), _map->xy2ll(vr.bottomRight()));
+
+	_map->setDevicePixelRatio(_ratio);
+	_scene->setSceneRect(_map->bounds());
+
+	for (int i = 0; i < _tracks.size(); i++)
+		_tracks.at(i)->setMap(_map);
+	for (int i = 0; i < _routes.size(); i++)
+		_routes.at(i)->setMap(_map);
+	for (int i = 0; i < _waypoints.size(); i++)
+		_waypoints.at(i)->setMap(_map);
+
+	QHash<SearchPointer<Waypoint>, WaypointItem*>::const_iterator it;
+	for (it = _pois.constBegin(); it != _pois.constEnd(); it++)
+		it.value()->setMap(_map);
+	updatePOIVisibility();
+
+	QPointF nc = QRectF(_map->ll2xy(cr.topLeft()),
+	  _map->ll2xy(cr.bottomRight())).center();
+	centerOn(nc);
+
+	reloadMap();
+#else // ENABLE_HIDPI
+	Q_UNUSED(ratio);
+#endif // ENABLE_HIDPI
 }

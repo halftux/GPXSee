@@ -6,7 +6,7 @@
 
 
 #define BORDER_WIDTH   1
-#define SCALE_WIDTH    132
+#define SCALE_WIDTH    135
 #define SCALE_HEIGHT   5
 #define SEGMENTS       3
 #define PADDING        4
@@ -20,10 +20,6 @@ ScaleItem::ScaleItem(QGraphicsItem *parent) : QGraphicsItem(parent)
 
 	_font.setPixelSize(FONT_SIZE);
 	_font.setFamily(FONT_FAMILY);
-
-#ifndef Q_OS_MAC
-	setCacheMode(QGraphicsItem::DeviceCoordinateCache);
-#endif // Q_OS_MAC
 }
 
 void ScaleItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,

@@ -6,6 +6,7 @@
 #include "common/rtree.h"
 #include "common/rectc.h"
 #include "transform.h"
+#include "projection.h"
 #include "map.h"
 
 class JNXMap : public Map
@@ -16,10 +17,9 @@ public:
 public:
 	JNXMap(const QString &fileName, QObject *parent = 0);
 
-	const QString &name() const {return _name;}
+	QString name() const {return _name;}
 
-	QRectF bounds() const;
-	qreal resolution(const QRectF &rect) const;
+	QRectF bounds();
 
 	int zoom() const {return _zoom;}
 	void setZoom(int zoom) {_zoom = zoom;}
@@ -27,12 +27,12 @@ public:
 	int zoomIn();
 	int zoomOut();
 
-	QPointF ll2xy(const Coordinates &c)
-		{return static_cast<const JNXMap &>(*this).ll2xy(c);}
-	Coordinates xy2ll(const QPointF &p)
-		{return static_cast<const JNXMap &>(*this).xy2ll(p);}
+	QPointF ll2xy(const Coordinates &c);
+	Coordinates xy2ll(const QPointF &p);
 
-	void draw(QPainter *painter, const QRectF &rect, bool block);
+	void draw(QPainter *painter, const QRectF &rect, Flags flags);
+
+	void setDevicePixelRatio(qreal ratio) {_ratio = ratio;}
 
 	bool isValid() const {return _valid;}
 	QString errorString() const {return _errorString;}
@@ -50,9 +50,6 @@ private:
 		RTree<Tile*, qreal, 2> tree;
 	};
 
-	QPointF ll2xy(const Coordinates &c) const;
-	Coordinates xy2ll(const QPointF &p) const;
-
 	template<class T> bool readValue(T &val);
 	bool readString(QByteArray &ba);
 	bool readTiles();
@@ -65,6 +62,8 @@ private:
 	QVector<Zoom> _zooms;
 	int _zoom;
 	RectC _bounds;
+	Projection _projection;
+	qreal _ratio;
 
 	bool _valid;
 	QString _errorString;

@@ -9,10 +9,6 @@ InfoItem::InfoItem(QGraphicsItem *parent) : QGraphicsItem(parent)
 {
 	_font.setPixelSize(FONT_SIZE);
 	_font.setFamily(FONT_FAMILY);
-
-#ifndef Q_OS_MAC
-	setCacheMode(QGraphicsItem::DeviceCoordinateCache);
-#endif // Q_OS_MAC
 }
 
 void InfoItem::updateBoundingRect()
@@ -22,8 +18,8 @@ void InfoItem::updateBoundingRect()
 
 	for (QList<KV>::const_iterator i = _list.constBegin();
 	  i != _list.constEnd(); i++) {
-		width += fm.width(i->key + ": ");
-		width += fm.width(i->value) + ((i == _list.constEnd() - 1)
+		width += fm.width(i->key() + ": ");
+		width += fm.width(i->value()) + ((i == _list.constEnd() - 1)
 		  ? 0 : PADDING);
 	}
 
@@ -46,10 +42,10 @@ void InfoItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
 #ifdef Q_WS_MAEMO_5
 		painter->setPen(Qt::white);
 #endif
-		painter->drawText(width, fm.height() - fm.descent(), i->key + ": ");
-		width += fm.width(i->key + ": ");
-		painter->drawText(width, fm.height() - fm.descent(), i->value);
-		width += fm.width(i->value) + ((i == _list.constEnd() - 1)
+		painter->drawText(width, fm.height() - fm.descent(), i->key() + ": ");
+		width += fm.width(i->key() + ": ");
+		painter->drawText(width, fm.height() - fm.descent(), i->value());
+		width += fm.width(i->value()) + ((i == _list.constEnd() - 1)
 		  ? 0 : PADDING);
 		if (i != _list.constEnd() - 1) {
 			painter->save();

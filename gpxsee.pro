@@ -1,13 +1,16 @@
 
 TARGET = gpxsee
-VERSION = 5.13
+VERSION = 5.18
 
 QT += core \
     gui \
     network
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
-greaterThan(QT_MAJOR_VERSION, 4): QT += printsupport
-lessThan(QT_VERSION, 5.4): QT += opengl
+greaterThan(QT_MAJOR_VERSION, 4) {
+    QT += widgets
+    QT += printsupport
+}
+lessThan(QT_MAJOR_VERSION, 5) {QT += opengl}
+equals(QT_MAJOR_VERSION, 5) : lessThan(QT_MINOR_VERSION, 4) {QT += opengl}
 macx: QT += opengl
 maemo5: QT += maemo5
 
@@ -53,6 +56,7 @@ HEADERS += src/config.h \
     src/GUI/format.h \
     src/GUI/cadencegraph.h \
     src/GUI/powergraph.h \
+    src/GUI/gearratiograph.h \
     src/GUI/optionsdialog.h \
     src/GUI/colorbox.h \
     src/GUI/stylecombobox.h \
@@ -65,6 +69,7 @@ HEADERS += src/config.h \
     src/GUI/temperaturegraphitem.h \
     src/GUI/cadencegraphitem.h \
     src/GUI/powergraphitem.h \
+    src/GUI/gearratiographitem.h \
     src/GUI/oddspinbox.h \
     src/GUI/settings.h \
     src/GUI/nicenum.h \
@@ -87,7 +92,7 @@ HEADERS += src/config.h \
     src/map/downloader.h \
     src/map/tile.h \
     src/map/emptymap.h \
-    src/map/offlinemap.h \
+    src/map/ozimap.h \
     src/map/tar.h \
     src/map/ozf.h \
     src/map/atlas.h \
@@ -134,7 +139,12 @@ HEADERS += src/config.h \
     src/map/geocentric.h \
     src/map/mercator.h \
     src/map/jnxmap.h \
-    src/map/krovak.h
+    src/map/krovak.h \
+    src/GUI/kv.h \
+    src/data/locparser.h \
+    src/data/slfparser.h \
+    src/map/geotiffmap.h \
+    src/map/image.h
 SOURCES += src/main.cpp \
     src/common/coordinates.cpp \
     src/common/rectc.cpp \
@@ -168,6 +178,7 @@ SOURCES += src/main.cpp \
     src/GUI/format.cpp \
     src/GUI/cadencegraph.cpp \
     src/GUI/powergraph.cpp \
+    src/GUI/gearratiograph.cpp \
     src/GUI/optionsdialog.cpp \
     src/GUI/colorbox.cpp \
     src/GUI/stylecombobox.cpp \
@@ -179,13 +190,14 @@ SOURCES += src/main.cpp \
     src/GUI/temperaturegraphitem.cpp \
     src/GUI/cadencegraphitem.cpp \
     src/GUI/powergraphitem.cpp \
+    src/GUI/gearratiographitem.cpp \
     src/GUI/nicenum.cpp \
     src/GUI/mapview.cpp \
     src/map/maplist.cpp \
     src/map/onlinemap.cpp \
     src/map/downloader.cpp \
     src/map/emptymap.cpp \
-    src/map/offlinemap.cpp \
+    src/map/ozimap.cpp \
     src/map/tar.cpp \
     src/map/atlas.cpp \
     src/map/ozf.cpp \
@@ -232,7 +244,13 @@ SOURCES += src/main.cpp \
     src/map/geocentric.cpp \
     src/map/mercator.cpp \
     src/map/jnxmap.cpp \
-    src/map/krovak.cpp
+    src/map/krovak.cpp \
+    src/map/map.cpp \
+    src/data/locparser.cpp \
+    src/data/slfparser.cpp \
+    src/map/geotiffmap.cpp \
+    src/map/image.cpp
+
 RESOURCES += gpxsee.qrc
 !maemo5: TRANSLATIONS = lang/gpxsee_cs.ts \
     lang/gpxsee_sv.ts \
@@ -280,7 +298,9 @@ macx {
         icons/nmea.icns \
         icons/plt.icns \
         icons/rte.icns \
-        icons/wpt.icns
+        icons/wpt.icns \
+        icons/loc.icns \
+        icons/slf.icns
     QMAKE_BUNDLE_DATA += LOCALE MAPS ICONS CSV
 }
 win32 {
@@ -293,9 +313,12 @@ win32 {
         icons/nmea.ico \
         icons/plt.ico \
         icons/rte.ico \
-        icons/wpt.ico
+        icons/wpt.ico \
+        icons/loc.ico \
+        icons/slf.ico
     DEFINES += _USE_MATH_DEFINES
 }
+
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 
 maemo5 {
@@ -341,3 +364,6 @@ maemo5 {
 				csv2 \
 				csv3
 }
+
+DEFINES *= QT_USE_QSTRINGBUILDER
+

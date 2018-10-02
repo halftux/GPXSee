@@ -29,6 +29,7 @@
 #define DISTANCE_GRAPH_SHORTCUT QKeySequence(Qt::CTRL + Qt::Key_D)
 #define TIME_GRAPH_SHORTCUT     QKeySequence(Qt::CTRL + Qt::Key_T)
 #define FULLSCREEN_SHORTCUT     QKeySequence(Qt::CTRL + Qt::Key_F)
+#define STATISTICS_SHORTCUT     QKeySequence(Qt::CTRL + Qt::Key_K)
 #else
 #define NEXT_KEY                Qt::Key_Space
 #define PREV_KEY                Qt::Key_Backspace
@@ -50,6 +51,7 @@
 #define NEXT_MAP_SHORTCUT       QKeySequence(QKeySequence::Forward)
 #define PREV_MAP_SHORTCUT       QKeySequence(QKeySequence::Back)
 #define SHOW_GRAPHS_SHORTCUT    QKeySequence(Qt::CTRL + Qt::Key_G)
+#define STATISTICS_SHORTCUT     QKeySequence(Qt::CTRL + Qt::Key_S)
 
 #ifdef Q_OS_MAC
 #define FULLSCREEN_SHORTCUT     QKeySequence(Qt::META + Qt::CTRL + Qt::Key_F)

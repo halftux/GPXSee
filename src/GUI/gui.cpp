@@ -1,3 +1,4 @@
+#include "config.h"
 #include <QApplication>
 #include <QSplitter>
 #include <QVBoxLayout>
@@ -22,11 +23,16 @@
 #include <QMimeData>
 #include <QUrl>
 #include <QPixmapCache>
+#ifdef ENABLE_HIDPI
+#include <QWindow>
+#include <QScreen>
+#endif // ENABLE_HIDPI
+#include <QStyle>
 #include "data/data.h"
+#include "data/poi.h"
 #include "map/maplist.h"
 #include "map/emptymap.h"
 #include "map/downloader.h"
-#include "config.h"
 #include "icons.h"
 #include "keys.h"
 #include "settings.h"
@@ -36,6 +42,7 @@
 #include "temperaturegraph.h"
 #include "cadencegraph.h"
 #include "powergraph.h"
+#include "gearratiograph.h"
 #include "mapview.h"
 #include "trackinfo.h"
 #include "filebrowser.h"
@@ -52,6 +59,8 @@
 #include <QTimer>
 #endif
 
+
+#define TOOLBAR_ICON_SIZE 22
 
 GUI::GUI()
 {
@@ -80,8 +89,7 @@ GUI::GUI()
 	_splitter->setStretchFactor(1, 1);
 	setCentralWidget(_splitter);
 
-
-	setWindowIcon(QIcon(QPixmap(APP_ICON)));
+	setWindowIcon(QIcon(APP_ICON));
 	setWindowTitle(APP_NAME);
 	setUnifiedTitleAndToolBarOnMac(true);
 	setAcceptDrops(true);
@@ -120,13 +128,6 @@ GUI::GUI()
 	updateStatusBarInfo();
 }
 
-GUI::~GUI()
-{
-	for (int i = 0; i < _tabs.size(); i++) {
-		if (_graphTabWidget->indexOf(_tabs.at(i)) < 0)
-			delete _tabs.at(i);
-	}
-}
 #ifdef Q_WS_MAEMO_5
 void GUI::click()
 {
@@ -287,6 +288,7 @@ void GUI::createMapActions()
 
 	for (int i = 0; i < _ml->maps().count(); i++) {
 		QAction *a = new QAction(_ml->maps().at(i)->name(), this);
+		a->setMenuRole(QAction::NoRole);
 		a->setCheckable(true);
 		a->setActionGroup(_mapsActionGroup);
 
@@ -315,6 +317,7 @@ QAction *GUI::createPOIFileAction(int index)
 {
 	QAction *a = new QAction(QFileInfo(_poi->files().at(index)).fileName(),
 	  this);
+	a->setMenuRole(QAction::NoRole);
 	a->setCheckable(true);
 
 	_poiFilesSignalMapper->setMapping(a, index);
@@ -344,7 +347,7 @@ void GUI::createActions()
 	_navigationActionGroup->setEnabled(false);
 
 	// General actions
-	_exitAction = new QAction(QIcon(QPixmap(QUIT_ICON)), tr("Quit"), this);
+	_exitAction = new QAction(QIcon(QUIT_ICON), tr("Quit"), this);
 	_exitAction->setShortcut(QUIT_SHORTCUT);
 	_exitAction->setMenuRole(QAction::QuitRole);
 	connect(_exitAction, SIGNAL(triggered()), this, SLOT(close()));
@@ -352,63 +355,77 @@ void GUI::createActions()
 
 	// Help & About
 	_pathsAction = new QAction(tr("Paths"), this);
+	_pathsAction->setMenuRole(QAction::NoRole);
 	connect(_pathsAction, SIGNAL(triggered()), this, SLOT(paths()));
 	_keysAction = new QAction(tr("Keyboard controls"), this);
+	_keysAction->setMenuRole(QAction::NoRole);
 	connect(_keysAction, SIGNAL(triggered()), this, SLOT(keys()));
-	_aboutAction = new QAction(QIcon(QPixmap(APP_ICON)),
-	  tr("About GPXSee"), this);
+	_aboutAction = new QAction(QIcon(APP_ICON), tr("About GPXSee"), this);
 	_aboutAction->setMenuRole(QAction::AboutRole);
 	connect(_aboutAction, SIGNAL(triggered()), this, SLOT(about()));
 
 	// File actions
-	_openFileAction = new QAction(QIcon(QPixmap(OPEN_FILE_ICON)),
-	  tr("Open..."), this);
+	_openFileAction = new QAction(QIcon(OPEN_FILE_ICON), tr("Open..."), this);
+	_openFileAction->setMenuRole(QAction::NoRole);
 	_openFileAction->setShortcut(OPEN_SHORTCUT);
 	connect(_openFileAction, SIGNAL(triggered()), this, SLOT(openFile()));
 	addAction(_openFileAction);
 #ifndef Q_WS_MAEMO_5
-	_printFileAction = new QAction(QIcon(QPixmap(PRINT_FILE_ICON)),
-	  tr("Print..."), this);
+	_printFileAction = new QAction(QIcon(PRINT_FILE_ICON), tr("Print..."),
+	  this);
+	_printFileAction->setMenuRole(QAction::NoRole);
 	_printFileAction->setActionGroup(_fileActionGroup);
 	connect(_printFileAction, SIGNAL(triggered()), this, SLOT(printFile()));
 	addAction(_printFileAction);
 #endif
-	_exportFileAction = new QAction(QIcon(QPixmap(EXPORT_FILE_ICON)),
+	_exportFileAction = new QAction(QIcon(EXPORT_FILE_ICON),
 	  tr("Export to PDF..."), this);
+	_exportFileAction->setMenuRole(QAction::NoRole);
 	_exportFileAction->setShortcut(EXPORT_SHORTCUT);
 	_exportFileAction->setActionGroup(_fileActionGroup);
 	connect(_exportFileAction, SIGNAL(triggered()), this, SLOT(exportFile()));
 	addAction(_exportFileAction);
-	_closeFileAction = new QAction(QIcon(QPixmap(CLOSE_FILE_ICON)),
-	  tr("Close"), this);
+	_closeFileAction = new QAction(QIcon(CLOSE_FILE_ICON), tr("Close"), this);
+	_closeFileAction->setMenuRole(QAction::NoRole);
 	_closeFileAction->setShortcut(CLOSE_SHORTCUT);
 	_closeFileAction->setActionGroup(_fileActionGroup);
 	connect(_closeFileAction, SIGNAL(triggered()), this, SLOT(closeAll()));
 	addAction(_closeFileAction);
-	_reloadFileAction = new QAction(QIcon(QPixmap(RELOAD_FILE_ICON)),
-	  tr("Reload"), this);
+	_reloadFileAction = new QAction(QIcon(RELOAD_FILE_ICON), tr("Reload"),
+	  this);
+	_reloadFileAction->setMenuRole(QAction::NoRole);
 	_reloadFileAction->setShortcut(RELOAD_SHORTCUT);
 	_reloadFileAction->setActionGroup(_fileActionGroup);
 	connect(_reloadFileAction, SIGNAL(triggered()), this, SLOT(reloadFile()));
 	addAction(_reloadFileAction);
+	_statisticsAction = new QAction(tr("Statistics..."), this);
+	_statisticsAction->setMenuRole(QAction::NoRole);
+	_statisticsAction->setShortcut(STATISTICS_SHORTCUT);
+	_statisticsAction->setActionGroup(_fileActionGroup);
+	connect(_statisticsAction, SIGNAL(triggered()), this, SLOT(statistics()));
+	addAction(_statisticsAction);
 
 	// POI actions
-	_openPOIAction = new QAction(QIcon(QPixmap(OPEN_FILE_ICON)),
-	  tr("Load POI file..."), this);
+	_openPOIAction = new QAction(QIcon(OPEN_FILE_ICON), tr("Load POI file..."),
+	  this);
+	_openPOIAction->setMenuRole(QAction::NoRole);
 	connect(_openPOIAction, SIGNAL(triggered()), this, SLOT(openPOIFile()));
-	_closePOIAction = new QAction(QIcon(QPixmap(CLOSE_FILE_ICON)),
-	  tr("Close POI files"), this);
+	_closePOIAction = new QAction(QIcon(CLOSE_FILE_ICON), tr("Close POI files"),
+	  this);
+	_closePOIAction->setMenuRole(QAction::NoRole);
 	connect(_closePOIAction, SIGNAL(triggered()), this, SLOT(closePOIFiles()));
 	_overlapPOIAction = new QAction(tr("Overlap POIs"), this);
+	_overlapPOIAction->setMenuRole(QAction::NoRole);
 	_overlapPOIAction->setCheckable(true);
 	connect(_overlapPOIAction, SIGNAL(triggered(bool)), _mapView,
 	  SLOT(setPOIOverlap(bool)));
 	_showPOILabelsAction = new QAction(tr("Show POI labels"), this);
+	_showPOILabelsAction->setMenuRole(QAction::NoRole);
 	_showPOILabelsAction->setCheckable(true);
 	connect(_showPOILabelsAction, SIGNAL(triggered(bool)), _mapView,
 	  SLOT(showPOILabels(bool)));
-	_showPOIAction = new QAction(QIcon(QPixmap(SHOW_POI_ICON)),
-	  tr("Show POIs"), this);
+	_showPOIAction = new QAction(QIcon(SHOW_POI_ICON), tr("Show POIs"), this);
+	_showPOIAction->setMenuRole(QAction::NoRole);
 	_showPOIAction->setCheckable(true);
 	_showPOIAction->setShortcut(SHOW_POI_SHORTCUT);
 	connect(_showPOIAction, SIGNAL(triggered(bool)), _mapView,
@@ -417,25 +434,30 @@ void GUI::createActions()
 	createPOIFilesActions();
 
 	// Map actions
-	_showMapAction = new QAction(QIcon(QPixmap(SHOW_MAP_ICON)), tr("Show map"),
+	_showMapAction = new QAction(QIcon(SHOW_MAP_ICON), tr("Show map"),
 	  this);
+	_showMapAction->setMenuRole(QAction::NoRole);
 	_showMapAction->setCheckable(true);
 	_showMapAction->setShortcut(SHOW_MAP_SHORTCUT);
 	connect(_showMapAction, SIGNAL(triggered(bool)), _mapView,
 	  SLOT(showMap(bool)));
 	addAction(_showMapAction);
-	_loadMapAction = new QAction(QIcon(QPixmap(OPEN_FILE_ICON)),
-	  tr("Load map..."), this);
+	_loadMapAction = new QAction(QIcon(OPEN_FILE_ICON), tr("Load map..."),
+	  this);
+	_loadMapAction->setMenuRole(QAction::NoRole);
 	connect(_loadMapAction, SIGNAL(triggered()), this, SLOT(loadMap()));
 	_clearMapCacheAction = new QAction(tr("Clear tile cache"), this);
+	_clearMapCacheAction->setMenuRole(QAction::NoRole);
 	connect(_clearMapCacheAction, SIGNAL(triggered()), _mapView,
 	  SLOT(clearMapCache()));
 	createMapActions();
 	_nextMapAction = new QAction(tr("Next map"), this);
+	_nextMapAction->setMenuRole(QAction::NoRole);
 	_nextMapAction->setShortcut(NEXT_MAP_SHORTCUT);
 	connect(_nextMapAction, SIGNAL(triggered()), this, SLOT(nextMap()));
 	addAction(_nextMapAction);
 	_prevMapAction = new QAction(tr("Next map"), this);
+	_prevMapAction->setMenuRole(QAction::NoRole);
 	_prevMapAction->setShortcut(PREV_MAP_SHORTCUT);
 	connect(_prevMapAction, SIGNAL(triggered()), this, SLOT(prevMap()));
 	addAction(_prevMapAction);
@@ -446,29 +468,35 @@ void GUI::createActions()
 
 	// Data actions
 	_showTracksAction = new QAction(tr("Show tracks"), this);
+	_showTracksAction->setMenuRole(QAction::NoRole);
 	_showTracksAction->setCheckable(true);
 	connect(_showTracksAction, SIGNAL(triggered(bool)), this,
 	  SLOT(showTracks(bool)));
 	_showRoutesAction = new QAction(tr("Show routes"), this);
+	_showRoutesAction->setMenuRole(QAction::NoRole);
 	_showRoutesAction->setCheckable(true);
 	connect(_showRoutesAction, SIGNAL(triggered(bool)), this,
 	  SLOT(showRoutes(bool)));
 	_showWaypointsAction = new QAction(tr("Show waypoints"), this);
+	_showWaypointsAction->setMenuRole(QAction::NoRole);
 	_showWaypointsAction->setCheckable(true);
 	connect(_showWaypointsAction, SIGNAL(triggered(bool)), _mapView,
 	  SLOT(showWaypoints(bool)));
 	_showWaypointLabelsAction = new QAction(tr("Waypoint labels"), this);
+	_showWaypointLabelsAction->setMenuRole(QAction::NoRole);
 	_showWaypointLabelsAction->setCheckable(true);
 	connect(_showWaypointLabelsAction, SIGNAL(triggered(bool)), _mapView,
 	  SLOT(showWaypointLabels(bool)));
 	_showRouteWaypointsAction = new QAction(tr("Route waypoints"), this);
+	_showRouteWaypointsAction->setMenuRole(QAction::NoRole);
 	_showRouteWaypointsAction->setCheckable(true);
 	connect(_showRouteWaypointsAction, SIGNAL(triggered(bool)), _mapView,
 	  SLOT(showRouteWaypoints(bool)));
 
 	// Graph actions
-	_showGraphsAction = new QAction(QIcon(QPixmap(SHOW_GRAPHS_ICON)),
-	  tr("Show graphs"), this);
+	_showGraphsAction = new QAction(QIcon(SHOW_GRAPHS_ICON), tr("Show graphs"),
+	  this);
+	_showGraphsAction->setMenuRole(QAction::NoRole);
 	_showGraphsAction->setCheckable(true);
 	_showGraphsAction->setShortcut(SHOW_GRAPHS_SHORTCUT);
 	connect(_showGraphsAction, SIGNAL(triggered(bool)), this,
@@ -493,28 +521,33 @@ void GUI::createActions()
 	ag = new QActionGroup(this);
 	ag->setExclusive(true);
 	_distanceGraphAction = new QAction(tr("Distance"), this);
+	_distanceGraphAction->setMenuRole(QAction::NoRole);
 	_distanceGraphAction->setCheckable(true);
 	_distanceGraphAction->setActionGroup(ag);
 	connect(_distanceGraphAction, SIGNAL(triggered()), this,
 	  SLOT(setDistanceGraph()));
 	addAction(_distanceGraphAction);
 	_timeGraphAction = new QAction(tr("Time"), this);
+	_timeGraphAction->setMenuRole(QAction::NoRole);
 	_timeGraphAction->setCheckable(true);
 	_timeGraphAction->setActionGroup(ag);
 	connect(_timeGraphAction, SIGNAL(triggered()), this,
 	  SLOT(setTimeGraph()));
 	addAction(_timeGraphAction);
 	_showGraphGridAction = new QAction(tr("Show grid"), this);
+	_showGraphGridAction->setMenuRole(QAction::NoRole);
 	_showGraphGridAction->setCheckable(true);
 	connect(_showGraphGridAction, SIGNAL(triggered(bool)), this,
 	  SLOT(showGraphGrids(bool)));
 	_showGraphSliderInfoAction = new QAction(tr("Show slider info"), this);
+	_showGraphSliderInfoAction->setMenuRole(QAction::NoRole);
 	_showGraphSliderInfoAction->setCheckable(true);
 	connect(_showGraphSliderInfoAction, SIGNAL(triggered(bool)), this,
 	  SLOT(showGraphSliderInfo(bool)));
 
 	// Settings actions
 	_showToolbarsAction = new QAction(tr("Show toolbars"), this);
+	_showToolbarsAction->setMenuRole(QAction::NoRole);
 	_showToolbarsAction->setCheckable(true);
 #ifdef Q_WS_MAEMO_5
 	_showToolbarsAction->setShortcut(SHOW_TOOLBARS_SHORTCUT);
@@ -527,11 +560,13 @@ void GUI::createActions()
 	ag = new QActionGroup(this);
 	ag->setExclusive(true);
 	_totalTimeAction = new QAction(tr("Total time"), this);
+	_totalTimeAction->setMenuRole(QAction::NoRole);
 	_totalTimeAction->setCheckable(true);
 	_totalTimeAction->setActionGroup(ag);
 	connect(_totalTimeAction, SIGNAL(triggered()), this,
 	  SLOT(setTotalTime()));
 	_movingTimeAction = new QAction(tr("Moving time"), this);
+	_movingTimeAction->setMenuRole(QAction::NoRole);
 	_movingTimeAction->setCheckable(true);
 	_movingTimeAction->setActionGroup(ag);
 	connect(_movingTimeAction, SIGNAL(triggered()), this,
@@ -539,16 +574,19 @@ void GUI::createActions()
 	ag = new QActionGroup(this);
 	ag->setExclusive(true);
 	_metricUnitsAction = new QAction(tr("Metric"), this);
+	_metricUnitsAction->setMenuRole(QAction::NoRole);
 	_metricUnitsAction->setCheckable(true);
 	_metricUnitsAction->setActionGroup(ag);
 	connect(_metricUnitsAction, SIGNAL(triggered()), this,
 	  SLOT(setMetricUnits()));
 	_imperialUnitsAction = new QAction(tr("Imperial"), this);
+	_imperialUnitsAction->setMenuRole(QAction::NoRole);
 	_imperialUnitsAction->setCheckable(true);
 	_imperialUnitsAction->setActionGroup(ag);
 	connect(_imperialUnitsAction, SIGNAL(triggered()), this,
 	  SLOT(setImperialUnits()));
 	_nauticalUnitsAction = new QAction(tr("Nautical"), this);
+	_nauticalUnitsAction->setMenuRole(QAction::NoRole);
 	_nauticalUnitsAction->setCheckable(true);
 	_nauticalUnitsAction->setActionGroup(ag);
 	connect(_nauticalUnitsAction, SIGNAL(triggered()), this,
@@ -556,22 +594,26 @@ void GUI::createActions()
 	ag = new QActionGroup(this);
 	ag->setExclusive(true);
 	_decimalDegreesAction = new QAction(tr("Decimal degrees (DD)"), this);
+	_decimalDegreesAction->setMenuRole(QAction::NoRole);
 	_decimalDegreesAction->setCheckable(true);
 	_decimalDegreesAction->setActionGroup(ag);
 	connect(_decimalDegreesAction, SIGNAL(triggered()), this,
 	  SLOT(setDecimalDegrees()));
 	_degreesMinutesAction = new QAction(tr("Degrees and decimal minutes (DMM)"),
 	  this);
+	_degreesMinutesAction->setMenuRole(QAction::NoRole);
 	_degreesMinutesAction->setCheckable(true);
 	_degreesMinutesAction->setActionGroup(ag);
 	connect(_degreesMinutesAction, SIGNAL(triggered()), this,
 	  SLOT(setDegreesMinutes()));
 	_DMSAction = new QAction(tr("Degrees, minutes, seconds (DMS)"), this);
+	_DMSAction->setMenuRole(QAction::NoRole);
 	_DMSAction->setCheckable(true);
 	_DMSAction->setActionGroup(ag);
 	connect(_DMSAction, SIGNAL(triggered()), this, SLOT(setDMS()));
-	_fullscreenAction = new QAction(QIcon(QPixmap(FULLSCREEN_ICON)),
+	_fullscreenAction = new QAction(QIcon(FULLSCREEN_ICON),
 	  tr("Fullscreen mode"), this);
+	_fullscreenAction->setMenuRole(QAction::NoRole);
 	_fullscreenAction->setCheckable(true);
 	_fullscreenAction->setShortcut(FULLSCREEN_SHORTCUT);
 	connect(_fullscreenAction, SIGNAL(triggered(bool)), this,
@@ -583,18 +625,20 @@ void GUI::createActions()
 	  SLOT(openOptions()));
 
 	// Navigation actions
-	_nextAction = new QAction(QIcon(QPixmap(NEXT_FILE_ICON)), tr("Next"), this);
+	_nextAction = new QAction(QIcon(NEXT_FILE_ICON), tr("Next"), this);
 	_nextAction->setActionGroup(_navigationActionGroup);
+	_nextAction->setMenuRole(QAction::NoRole);
 	connect(_nextAction, SIGNAL(triggered()), this, SLOT(next()));
-	_prevAction = new QAction(QIcon(QPixmap(PREV_FILE_ICON)), tr("Previous"),
-	  this);
+	_prevAction = new QAction(QIcon(PREV_FILE_ICON), tr("Previous"), this);
+	_prevAction->setMenuRole(QAction::NoRole);
 	_prevAction->setActionGroup(_navigationActionGroup);
 	connect(_prevAction, SIGNAL(triggered()), this, SLOT(prev()));
-	_lastAction = new QAction(QIcon(QPixmap(LAST_FILE_ICON)), tr("Last"), this);
+	_lastAction = new QAction(QIcon(LAST_FILE_ICON), tr("Last"), this);
+	_lastAction->setMenuRole(QAction::NoRole);
 	_lastAction->setActionGroup(_navigationActionGroup);
 	connect(_lastAction, SIGNAL(triggered()), this, SLOT(last()));
-	_firstAction = new QAction(QIcon(QPixmap(FIRST_FILE_ICON)), tr("First"),
-	  this);
+	_firstAction = new QAction(QIcon(FIRST_FILE_ICON), tr("First"), this);
+	_firstAction->setMenuRole(QAction::NoRole);
 	_firstAction->setActionGroup(_navigationActionGroup);
 	connect(_firstAction, SIGNAL(triggered()), this, SLOT(first()));
 }
@@ -696,8 +740,9 @@ void GUI::createMenus()
 	fileMenu->addAction(_printFileAction);
 	fileMenu->addAction(_exportFileAction);
 	fileMenu->addSeparator();
-	fileMenu->addAction(_reloadFileAction);
+	fileMenu->addAction(_statisticsAction);
 	fileMenu->addSeparator();
+	fileMenu->addAction(_reloadFileAction);
 	fileMenu->addAction(_closeFileAction);
 #ifndef Q_OS_MAC
 	fileMenu->addSeparator();
@@ -770,11 +815,15 @@ void GUI::createMenus()
 
 void GUI::createToolBars()
 {
+	int is = style()->pixelMetric(QStyle::PM_ToolBarIconSize);
+	QSize iconSize(qMin(is, TOOLBAR_ICON_SIZE), qMin(is, TOOLBAR_ICON_SIZE));
+
 #ifdef Q_OS_MAC
 	setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 #endif // Q_OS_MAC
 
 	_fileToolBar = addToolBar(tr("File"));
+	_fileToolBar->setIconSize(iconSize);
 	_fileToolBar->addAction(_openFileAction);
 	_fileToolBar->addAction(_reloadFileAction);
 	_fileToolBar->addAction(_closeFileAction);
@@ -782,11 +831,13 @@ void GUI::createToolBars()
 	_fileToolBar->addAction(_printFileAction);
 #endif
 	_showToolBar = addToolBar(tr("Show"));
+	_showToolBar->setIconSize(iconSize);
 	_showToolBar->addAction(_showPOIAction);
 	_showToolBar->addAction(_showMapAction);
 	_showToolBar->addAction(_showGraphsAction);
 
 	_navigationToolBar = addToolBar(tr("Navigation"));
+	_navigationToolBar->setIconSize(iconSize);
 	_navigationToolBar->addAction(_firstAction);
 	_navigationToolBar->addAction(_prevAction);
 	_navigationToolBar->addAction(_nextAction);
@@ -828,12 +879,13 @@ void GUI::createGraphTabs()
 	_graphTabWidget->setDocumentMode(true);
 #endif // Q_OS_WIN32
 
-	_tabs.append(new ElevationGraph);
-	_tabs.append(new SpeedGraph);
-	_tabs.append(new HeartRateGraph);
-	_tabs.append(new CadenceGraph);
-	_tabs.append(new PowerGraph);
-	_tabs.append(new TemperatureGraph);
+	_tabs.append(new ElevationGraph(_graphTabWidget));
+	_tabs.append(new SpeedGraph(_graphTabWidget));
+	_tabs.append(new HeartRateGraph(_graphTabWidget));
+	_tabs.append(new CadenceGraph(_graphTabWidget));
+	_tabs.append(new PowerGraph(_graphTabWidget));
+	_tabs.append(new TemperatureGraph(_graphTabWidget));
+	_tabs.append(new GearRatioGraph(_graphTabWidget));
 
 	for (int i = 0; i < _tabs.count(); i++)
 		connect(_tabs.at(i), SIGNAL(sliderPositionChanged(qreal)), this,
@@ -892,6 +944,7 @@ void GUI::keys()
 	  + tr("First file") + QString("</td><td><i>UP</i></td></tr><tr><td>")
 	  + tr("Last file") + QString("</td><td><i>DOWN</i></td></tr><tr><td>")
 	  + tr("Zoom") + QString("</td><td><i>Vol.up/Vol.down</i></td></tr><tr><td>")
+	  + tr("Digital zoom") + QString("</td><td><i>Shift+o/Shift+l</i></td></tr><tr><td>")
 	  + tr("Append modifier") + QString("</td><td><i>SHIFT</i></td></tr>"
 	  "<tr><td></td><td></td></tr><tr><td>")
 	  + tr("Next map") + QString("</td><td><i>")
@@ -916,6 +969,8 @@ void GUI::keys()
 	  + _showStatusbarAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
 	  + tr("Show Toolbar") + QString("</td><td><i>")
 	  + _showToolbarsAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
+	  + tr("Show Stats") + QString("</td><td><i>")
+	  + _statisticsAction->shortcut().toString() + QString("</i></td></tr><tr><td>")
 	  + tr("Toggle graph type") + "</td><td><i>"
 	  + QKeySequence(TOGGLE_GRAPH_TYPE_KEY).toString() + "</i></td></tr><tr><td>"
 	  + tr("Toggle time type") + "</td><td><i>"
@@ -959,23 +1014,26 @@ void GUI::keys()
 void GUI::paths()
 {
 	QMessageBox msgBox(this);
-
 	msgBox.setWindowTitle(tr("Paths"));
+#ifdef Q_WS_MAEMO_5
+	msgBox.setText("<h3>" + tr("Directory of files") + "</h3>");
+#else
 	msgBox.setText("<h3>" + tr("Paths") + "</h3>");
+#endif
 	msgBox.setInformativeText(
-	  "<style>td {white-space: pre; padding-right: 1em;}</style>"
-	  "<div><table><tr><td>" + tr("Map directory:") + "</td><td><code>"
-	  + QDir::cleanPath(GLOBAL_MAP_DIR) + "</code></td></tr><tr><td>"
-	  + tr("POI directory:") + "</td><td><code>"
+	  "<div><h4>"
+	  + tr("Global") + "</h4><table><tr><td>" + tr("Map directory:")
+	  + "</td><td><code>" + QDir::cleanPath(GLOBAL_MAP_DIR)
+	  + "</code></td></tr><tr><td>" + tr("POI directory:") + "</td><td><code>"
 	  + QDir::cleanPath(GLOBAL_POI_DIR) + "</code></td></tr><tr><td>"
-	  + tr("GCS file:") + "</td><td><code>" + QDir::cleanPath(GLOBAL_GCS_FILE)
-	  + "</code></td></tr><tr><td>" + tr("PCS file:") + "</td><td><code>"
-	  + QDir::cleanPath(GLOBAL_PCS_FILE) + "</code></td></tr><tr><td>"
-	  + tr("Ellipsoids file:") + "</td><td><code>"
-	  + QDir::cleanPath(GLOBAL_ELLIPSOID_FILE) + "</code></td></tr>"
-	  + "<tr><td></td><td></td></tr></table></div><div><table><tr><td>"
-	  + tr("User override directory:") + "</td><td><code>"
-	  + QDir::cleanPath(USER_DIR) + "</td></tr></table></div>"
+	  + tr("GCS/PCS directory:") + "</td><td><code>"
+	  + QDir::cleanPath(GLOBAL_CSV_DIR) + "</code></td></tr></table>"
+	  + "<h4>" + tr("User-specific") + "</h4><table><tr><td>"
+	  + tr("Map directory:") + "</td><td><code>" + QDir::cleanPath(USER_MAP_DIR)
+	  + "</code></td></tr><tr><td>" + tr("POI directory:") + "</td><td><code>"
+	  + QDir::cleanPath(USER_POI_DIR) + "</code></td></tr><tr><td>"
+	  + tr("GCS/PCS directory:") + "</td><td><code>"
+	  + QDir::cleanPath(USER_CSV_DIR) + "</code></td></tr></table></div>"
 	);
 
 	msgBox.exec();
@@ -1187,6 +1245,7 @@ void GUI::openOptions()
 	SET_TRACK_OPTION(outlierEliminate, setOutlierElimination);
 	SET_TRACK_OPTION(pauseSpeed, setPauseSpeed);
 	SET_TRACK_OPTION(pauseInterval, setPauseInterval);
+	SET_TRACK_OPTION(useReportedSpeed, useReportedSpeed);
 
 	if (options.poiRadius != _options.poiRadius)
 		_poi->setRadius(options.poiRadius);
@@ -1194,6 +1253,15 @@ void GUI::openOptions()
 		QPixmapCache::setCacheLimit(options.pixmapCache * 1024);
 	if (options.connectionTimeout != _options.connectionTimeout)
 		Downloader::setTimeout(options.connectionTimeout);
+#ifdef ENABLE_HTTP2
+	if (options.enableHTTP2 != _options.enableHTTP2)
+		Downloader::enableHTTP2(options.enableHTTP2);
+#endif // ENABLE_HTTP2
+#ifdef ENABLE_HIDPI
+	if (options.hidpiMap != _options.hidpiMap)
+		_mapView->setDevicePixelRatio(options.hidpiMap ? devicePixelRatioF()
+		  : 1.0);
+#endif // ENABLE_HIDPI
 
 	if (reload)
 		reloadFile();
@@ -1254,45 +1322,118 @@ void GUI::exportFile()
 #endif
 }
 
+void GUI::statistics()
+{
+	QLocale l(QLocale::system());
+
+#ifdef Q_OS_WIN32
+	QString text = "<style>td {white-space: pre; padding-right: 4em;}"
+	  "th {text-align: left; padding-top: 0.5em;}</style><table>";
+#else // Q_OS_WIN32
+	QString text = "<style>td {white-space: pre; padding-right: 2em;}"
+	  "th {text-align: left; padding-top: 0.5em;}</style><table>";
+#endif // Q_OS_WIN32
+
+	if (_showTracksAction->isChecked() && _trackCount > 1)
+		text.append("<tr><td>" + tr("Tracks") + ":</td><td>"
+		  + l.toString(_trackCount) + "</td></tr>");
+	if (_showRoutesAction->isChecked() && _routeCount > 1)
+		text.append("<tr><td>" + tr("Routes") + ":</td><td>"
+		  + l.toString(_routeCount) + "</td></tr>");
+	if (_showWaypointsAction->isChecked() && _waypointCount > 1)
+		text.append("<tr><td>" + tr("Waypoints") + ":</td><td>"
+		  + l.toString(_waypointCount) + "</td></tr>");
+
+	if (_dateRange.first.isValid()) {
+		if (_dateRange.first == _dateRange.second) {
+			QString format = l.dateFormat(QLocale::LongFormat);
+			text.append("<tr><td>" + tr("Date") + ":</td><td>"
+			  + _dateRange.first.toString(format) + "</td></tr>");
+		} else {
+			QString format = l.dateFormat(QLocale::ShortFormat);
+			text.append("<tr><td>" + tr("Date") + ":</td><td>"
+			  + QString("%1 - %2").arg(_dateRange.first.toString(format),
+			  _dateRange.second.toString(format)) + "</td></tr>");
+		}
+	}
+
+	if (distance() > 0)
+		text.append("<tr><td>" + tr("Distance") + ":</td><td>"
+		  + Format::distance(distance(), units()) + "</td></tr>");
+	if (time() > 0) {
+		text.append("<tr><td>" + tr("Time") + ":</td><td>"
+		  + Format::timeSpan(time()) + "</td></tr>");
+		text.append("<tr><td>" + tr("Moving time") + ":</td><td>"
+		  + Format::timeSpan(movingTime()) + "</td></tr>");
+	}
+
+	for (int i = 0; i < _tabs.count(); i++) {
+		const GraphTab *tab = _tabs.at(i);
+		if (tab->isEmpty())
+			continue;
+
+		text.append("<tr><th colspan=\"2\">" + tab->label() + "</th></tr>");
+		for (int j = 0; j < tab->info().size(); j++) {
+			const KV &kv = tab->info().at(j);
+			text.append("<tr><td>" + kv.key() + ":</td><td>" + kv.value()
+			  + "</td></tr>");
+		}
+	}
+
+	text.append("</table>");
+	text.append("\n\n\n");
+
+
+	QMessageBox msgBox(this);
+	msgBox.setGeometry(30,30,640,450);
+	msgBox.setWindowTitle(tr("Statistics"));
+#ifdef Q_WS_MAEMO_5
+	msgBox.setText("<h3>" + tr("Statistic Collection:") + "</h3>");
+#else
+	msgBox.setText("<h3>" + tr("Statistics") + "</h3>");
+#endif
+	msgBox.setInformativeText(text);
+	msgBox.exec();
+}
+
 void GUI::plot(QPrinter *printer)
 {
+	QLocale l(QLocale::system());
 	QPainter p(printer);
 	TrackInfo info;
 	qreal ih, gh, mh, ratio;
-	qreal d = distance();
-	qreal t = time();
-	qreal tm = movingTime();
+
 
 	if (!_pathName.isNull() && _options.printName)
 		info.insert(tr("Name"), _pathName);
 
 	if (_options.printItemCount) {
 		if (_showTracksAction->isChecked() && _trackCount > 1)
-			info.insert(tr("Tracks"), QString::number(_trackCount));
+			info.insert(tr("Tracks"), l.toString(_trackCount));
 		if (_showRoutesAction->isChecked() && _routeCount > 1)
-			info.insert(tr("Routes"), QString::number(_routeCount));
-		if (_showWaypointsAction->isChecked() && _waypointCount > 2)
-			info.insert(tr("Waypoints"), QString::number(_waypointCount));
+			info.insert(tr("Routes"), l.toString(_routeCount));
+		if (_showWaypointsAction->isChecked() && _waypointCount > 1)
+			info.insert(tr("Waypoints"), l.toString(_waypointCount));
 	}
 
 	if (_dateRange.first.isValid() && _options.printDate) {
 		if (_dateRange.first == _dateRange.second) {
-			QString format = QLocale::system().dateFormat(QLocale::LongFormat);
+			QString format = l.dateFormat(QLocale::LongFormat);
 			info.insert(tr("Date"), _dateRange.first.toString(format));
 		} else {
-			QString format = QLocale::system().dateFormat(QLocale::ShortFormat);
+			QString format = l.dateFormat(QLocale::ShortFormat);
 			info.insert(tr("Date"), QString("%1 - %2")
 			  .arg(_dateRange.first.toString(format),
 			  _dateRange.second.toString(format)));
 		}
 	}
 
-	if (d > 0 && _options.printDistance)
-		info.insert(tr("Distance"), Format::distance(d, units()));
-	if (t > 0 && _options.printTime)
-		info.insert(tr("Time"), Format::timeSpan(t));
-	if (tm > 0 && _options.printMovingTime)
-		info.insert(tr("Moving time"), Format::timeSpan(tm));
+	if (distance() > 0 && _options.printDistance)
+		info.insert(tr("Distance"), Format::distance(distance(), units()));
+	if (time() > 0 && _options.printTime)
+		info.insert(tr("Time"), Format::timeSpan(time()));
+	if (movingTime() > 0 && _options.printMovingTime)
+		info.insert(tr("Moving time"), Format::timeSpan(movingTime()));
 
 	qreal fsr = 1085.0 / (qMax(printer->width(), printer->height())
 	  / (qreal)printer->resolution());
@@ -1545,6 +1686,7 @@ bool GUI::loadMap(const QString &fileName)
 
 	if (_ml->loadFile(fileName)) {
 		QAction *a = new QAction(_ml->maps().last()->name(), this);
+		a->setMenuRole(QAction::NoRole);
 		a->setCheckable(true);
 		a->setActionGroup(_mapsActionGroup);
 		_mapsSignalMapper->setMapping(a, _ml->maps().size() - 1);
@@ -1921,7 +2063,7 @@ void GUI::writeSettings()
 	if (_showStatusbarAction->isChecked() != SHOW_STATUSBAR_DEFAULT)
 		settings.setValue(SHOW_STATUSBAR_SETTING,
 		  _showStatusbarAction->isChecked());
-	settings.setValue("lastfile",_files.at(0));
+	if (!_files.isEmpty()) settings.setValue("lastfile",_files.at(0));
 #endif
 	settings.endGroup();
 
@@ -2047,10 +2189,16 @@ void GUI::writeSettings()
 		settings.setValue(PAUSE_SPEED_SETTING, _options.pauseSpeed);
 	if (_options.pauseInterval != PAUSE_INTERVAL_DEFAULT)
 		settings.setValue(PAUSE_INTERVAL_SETTING, _options.pauseInterval);
+	if (_options.useReportedSpeed != USE_REPORTED_SPEED_DEFAULT)
+		settings.setValue(USE_REPORTED_SPEED_SETTING, _options.useReportedSpeed);
 	if (_options.poiRadius != POI_RADIUS_DEFAULT)
 		settings.setValue(POI_RADIUS_SETTING, _options.poiRadius);
 	if (_options.useOpenGL != USE_OPENGL_DEFAULT)
 		settings.setValue(USE_OPENGL_SETTING, _options.useOpenGL);
+#ifdef ENABLE_HTTP2
+	if (_options.enableHTTP2 != ENABLE_HTTP2_DEFAULT)
+		settings.setValue(ENABLE_HTTP2_SETTING, _options.enableHTTP2);
+#endif // ENABLE_HTTP2
 	if (_options.pixmapCache != PIXMAP_CACHE_DEFAULT)
 		settings.setValue(PIXMAP_CACHE_SETTING, _options.pixmapCache);
 	if (_options.connectionTimeout != CONNECTION_TIMEOUT_DEFAULT)
@@ -2076,6 +2224,10 @@ void GUI::writeSettings()
 		settings.setValue(SLIDER_COLOR_SETTING, _options.sliderColor);
 	if (_options.alwaysShowMap != ALWAYS_SHOW_MAP_DEFAULT)
 		settings.setValue(ALWAYS_SHOW_MAP_SETTING, _options.alwaysShowMap);
+#ifdef ENABLE_HIDPI
+	if (_options.hidpiMap != HIDPI_MAP_DEFAULT)
+		settings.setValue(HIDPI_MAP_SETTING, _options.hidpiMap);
+#endif // ENABLE_HIDPI
 	settings.endGroup();
 }
 
@@ -2283,12 +2435,18 @@ void GUI::readSettings()
 	  OUTLIER_ELIMINATE_DEFAULT).toBool();
 	_options.pauseSpeed = settings.value(PAUSE_SPEED_SETTING,
 	  PAUSE_SPEED_DEFAULT).toFloat();
+	_options.useReportedSpeed = settings.value(USE_REPORTED_SPEED_SETTING,
+	  USE_REPORTED_SPEED_DEFAULT).toBool();
 	_options.pauseInterval = settings.value(PAUSE_INTERVAL_SETTING,
 	  PAUSE_INTERVAL_DEFAULT).toInt();
 	_options.poiRadius = settings.value(POI_RADIUS_SETTING, POI_RADIUS_DEFAULT)
 	  .toInt();
 	_options.useOpenGL = settings.value(USE_OPENGL_SETTING, USE_OPENGL_DEFAULT)
 	  .toBool();
+#ifdef ENABLE_HTTP2
+	_options.enableHTTP2 = settings.value(ENABLE_HTTP2_SETTING,
+	  ENABLE_HTTP2_DEFAULT).toBool();
+#endif // ENABLE_HTTP2
 	_options.pixmapCache = settings.value(PIXMAP_CACHE_SETTING,
 	  PIXMAP_CACHE_DEFAULT).toInt();
 	_options.connectionTimeout = settings.value(CONNECTION_TIMEOUT_SETTING,
@@ -2313,6 +2471,10 @@ void GUI::readSettings()
 	  SLIDER_COLOR_DEFAULT).value<QColor>();
 	_options.alwaysShowMap = settings.value(ALWAYS_SHOW_MAP_SETTING,
 	  ALWAYS_SHOW_MAP_DEFAULT).toBool();
+#ifdef ENABLE_HIDPI
+	_options.hidpiMap = settings.value(HIDPI_MAP_SETTING, HIDPI_MAP_SETTING)
+	  .toBool();
+#endif // ENABLE_HIDPI
 
 	_mapView->setPalette(_options.palette);
 	_mapView->setMapOpacity(_options.mapOpacity);
@@ -2329,6 +2491,9 @@ void GUI::readSettings()
 	_mapView->setMarkerColor(_options.sliderColor);
 	if (_options.useOpenGL)
 		_mapView->useOpenGL(true);
+#ifdef ENABLE_HIDPI
+	_mapView->setDevicePixelRatio(_options.hidpiMap ? devicePixelRatioF() : 1.0);
+#endif // ENABLE_HIDPI
 
 	for (int i = 0; i < _tabs.count(); i++) {
 		_tabs.at(i)->setPalette(_options.palette);
@@ -2348,11 +2513,15 @@ void GUI::readSettings()
 	Track::setOutlierElimination(_options.outlierEliminate);
 	Track::setPauseSpeed(_options.pauseSpeed);
 	Track::setPauseInterval(_options.pauseInterval);
+	Track::useReportedSpeed(_options.useReportedSpeed);
 
 	_poi->setRadius(_options.poiRadius);
 
 	QPixmapCache::setCacheLimit(_options.pixmapCache * 1024);
 	Downloader::setTimeout(_options.connectionTimeout);
+#ifdef ENABLE_HTTP2
+	Downloader::enableHTTP2(_options.enableHTTP2);
+#endif // ENABLE_HTTP2
 
 	settings.endGroup();
 #ifdef Q_WS_MAEMO_5
@@ -2395,4 +2564,40 @@ qreal GUI::time() const
 qreal GUI::movingTime() const
 {
 	return (_showTracksAction->isChecked()) ? _movingTime : 0;
+}
+
+void GUI::show()
+{
+	QMainWindow::show();
+
+#ifdef ENABLE_HIDPI
+	QWindow *w = windowHandle();
+	connect(w->screen(), SIGNAL(logicalDotsPerInchChanged(qreal)), this,
+	  SLOT(logicalDotsPerInchChanged(qreal)));
+	connect(w, SIGNAL(screenChanged(QScreen*)), this,
+	  SLOT(screenChanged(QScreen*)));
+#endif // ENABLE_HIDPI
+}
+
+void GUI::screenChanged(QScreen *screen)
+{
+#ifdef ENABLE_HIDPI
+	_mapView->setDevicePixelRatio(_options.hidpiMap ? devicePixelRatioF() : 1.0);
+
+	disconnect(SIGNAL(logicalDotsPerInchChanged(qreal)), this,
+	  SLOT(logicalDotsPerInchChanged(qreal)));
+	connect(screen, SIGNAL(logicalDotsPerInchChanged(qreal)), this,
+	  SLOT(logicalDotsPerInchChanged(qreal)));
+#else // ENABLE_HIDPI
+	Q_UNUSED(screen);
+#endif // ENABLE_HIDPI
+}
+
+void GUI::logicalDotsPerInchChanged(qreal dpi)
+{
+	Q_UNUSED(dpi)
+
+#ifdef ENABLE_HIDPI
+	_mapView->setDevicePixelRatio(_options.hidpiMap ? devicePixelRatioF() : 1.0);
+#endif // ENBLE_HIDPI
 }

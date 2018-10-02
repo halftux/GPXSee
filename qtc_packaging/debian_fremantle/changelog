@@ -1,3 +1,11 @@
+gpxsee (0.5.18maemo1) unstable; urgency=low
+  * merged with upstream 5.18
+  * fixed close bug
+  * fixed messageboxes
+  * updated key list
+
+ -- Christian Weniger <less_to_space@web.de>  Mon, 01 Oct 2018 02:36:24 +0100
+
 gpxsee (0.5.13maemo1) unstable; urgency=low
   * merged with upstream 5.13
   * digital zoom is available

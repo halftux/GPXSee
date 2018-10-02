@@ -102,7 +102,8 @@ bool WMSMap::loadWMS()
 }
 
 WMSMap::WMSMap(const QString &name, const WMS::Setup &setup, QObject *parent)
-  : Map(parent), _name(name), _setup(setup), _zoom(0), _valid(false)
+  : Map(parent), _name(name), _setup(setup), _tileLoader(0), _zoom(0),
+  _ratio(1.0), _valid(false)
 {
 	if (!QDir().mkpath(tilesDir())) {
 		_errorString = "Error creating tiles dir";
@@ -126,21 +127,10 @@ void WMSMap::clearCache()
 		qWarning("%s: %s\n", qPrintable(_name), qPrintable(_errorString));
 }
 
-QRectF WMSMap::bounds() const
+QRectF WMSMap::bounds()
 {
-	return QRectF(_transform.proj2img(_bbox.topLeft()),
-	  _transform.proj2img(_bbox.bottomRight()));
-}
-
-qreal WMSMap::resolution(const QRectF &rect) const
-{
-	Coordinates tl = xy2ll((rect.topLeft()));
-	Coordinates br = xy2ll(rect.bottomRight());
-
-	qreal ds = tl.distanceTo(br);
-	qreal ps = QLineF(rect.topLeft(), rect.bottomRight()).length();
-
-	return ds/ps;
+	return QRectF(_transform.proj2img(_bbox.topLeft()) / _ratio,
+	  _transform.proj2img(_bbox.bottomRight()) / _ratio);
 }
 
 int WMSMap::zoomFit(const QSize &size, const RectC &rect)
@@ -156,7 +146,7 @@ int WMSMap::zoomFit(const QSize &size, const RectC &rect)
 
 		_zoom = 0;
 		for (int i = 0; i < _zooms.size(); i++) {
-			if (sd2res(_zooms.at(i)) < resolution)
+			if (sd2res(_zooms.at(i)) < resolution / _ratio)
 				break;
 			_zoom = i;
 		}
@@ -187,22 +177,27 @@ int WMSMap::zoomOut()
 	return _zoom;
 }
 
-QPointF WMSMap::ll2xy(const Coordinates &c) const
+QPointF WMSMap::ll2xy(const Coordinates &c)
 {
-	return _transform.proj2img(_projection.ll2xy(c));
+	return _transform.proj2img(_projection.ll2xy(c)) / _ratio;
 }
 
-Coordinates WMSMap::xy2ll(const QPointF &p) const
+Coordinates WMSMap::xy2ll(const QPointF &p)
 {
-	return _projection.xy2ll(_transform.img2proj(p));
+	return _projection.xy2ll(_transform.img2proj(p * _ratio));
 }
 
-void WMSMap::draw(QPainter *painter, const QRectF &rect, bool block)
+qreal WMSMap::tileSize() const
 {
-	QPoint tl = QPoint((int)floor(rect.left() / (qreal)TILE_SIZE),
-	  (int)floor(rect.top() / (qreal)TILE_SIZE));
-	QPoint br = QPoint((int)ceil(rect.right() / (qreal)TILE_SIZE),
-	  (int)ceil(rect.bottom() / (qreal)TILE_SIZE));
+	return (TILE_SIZE / _ratio);
+}
+
+void WMSMap::draw(QPainter *painter, const QRectF &rect, Flags flags)
+{
+	QPoint tl = QPoint((int)floor(rect.left() / tileSize()),
+	  (int)floor(rect.top() / tileSize()));
+	QPoint br = QPoint((int)ceil(rect.right() / tileSize()),
+	  (int)ceil(rect.bottom() / tileSize()));
 
 	QList<Tile> tiles;
 	for (int i = tl.x(); i < br.x(); i++) {
@@ -219,15 +214,19 @@ void WMSMap::draw(QPainter *painter, const QRectF &rect, bool block)
 		}
 	}
 
-	if (block)
+	if (flags & Map::Block)
 		_tileLoader->loadTilesSync(tiles);
 	else
 		_tileLoader->loadTilesAsync(tiles);
 
 	for (int i = 0; i < tiles.count(); i++) {
 		Tile &t = tiles[i];
-		QPoint tp(t.xy().x() * TILE_SIZE, t.xy().y() * TILE_SIZE);
-		if (!t.pixmap().isNull())
+		QPointF tp(t.xy().x() * tileSize(), t.xy().y() * tileSize());
+		if (!t.pixmap().isNull()) {
+#ifdef ENABLE_HIDPI
+			t.pixmap().setDevicePixelRatio(_ratio);
+#endif // ENABLE_HIDPI
 			painter->drawPixmap(tp, t.pixmap());
+		}
 	}
 }

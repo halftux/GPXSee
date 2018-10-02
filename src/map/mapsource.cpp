@@ -1,5 +1,6 @@
 #include <QFile>
 #include <QXmlStreamReader>
+#include "config.h"
 #include "onlinemap.h"
 #include "wmtsmap.h"
 #include "wmsmap.h"
@@ -15,7 +16,7 @@
 
 MapSource::Config::Config() : type(OSM), zooms(ZOOM_MIN, ZOOM_MAX),
   bounds(Coordinates(BOUNDS_LEFT, BOUNDS_TOP), Coordinates(BOUNDS_RIGHT,
-  BOUNDS_BOTTOM)), format("image/png"), rest(false) {}
+  BOUNDS_BOTTOM)), format("image/png"), rest(false), tileRatio(1.0) {}
 
 
 static CoordinateSystem coordinateSystem(QXmlStreamReader &reader)
@@ -159,6 +160,17 @@ void MapSource::map(QXmlStreamReader &reader, Config &config)
 			  attr.value("username").toString(),
 			  attr.value("password").toString());
 			reader.skipCurrentElement();
+		} else if (reader.name() == "tilePixelRatio") {
+#ifdef ENABLE_HIDPI
+			bool res;
+			qreal val = reader.readElementText().toDouble(&res);
+			if (!res)
+				reader.raiseError("Invalid tilePixelRatio");
+			else
+				config.tileRatio = val;
+#else // ENABLE_HIDPI
+			reader.raiseError("HiDPI maps not supported");
+#endif // ENABLE_HIDPI
 		} else
 			reader.skipCurrentElement();
 	}
@@ -222,12 +234,13 @@ Map *MapSource::loadMap(const QString &path, QString &errorString)
 	if (config.type == WMTS)
 		return new WMTSMap(config.name, WMTS::Setup(config.url, config.layer,
 		  config.set, config.style, config.format, config.rest,
-		  config.coordinateSystem, config.dimensions, config.authorization));
+		  config.coordinateSystem, config.dimensions, config.authorization),
+		  config.tileRatio);
 	else if (config.type == WMS)
 		return new WMSMap(config.name, WMS::Setup(config.url, config.layer,
 		  config.style, config.format, config.crs, config.coordinateSystem,
 		  config.dimensions, config.authorization));
 	else
 		return new OnlineMap(config.name, config.url, config.zooms,
-		  config.bounds, config.authorization);
+		  config.bounds, config.tileRatio, config.authorization);
 }
